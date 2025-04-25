@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Test Backend API</title>
+  <style>
+    #output {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-top: 10px;
+      min-height: 100px;
+      background-color: #f5f5f5;
+    }
+    #error {
+      color: red;
+      margin-top: 10px;
+    }
+    .loading {
+      color: blue;
+    }
+  </style>
+</head>
+<body>
+  <h1>Test /api/search</h1>
+  <input id="target" placeholder="Enter element, e.g. Brick" value="Brick" />
+  <button id="btn">Search</button>
+  <div id="error"></div>
+  <pre id="output"></pre>
+
+  <script>
+    document.getElementById('btn').onclick = async () => {
+      const target = document.getElementById('target').value;
+      const outputElem = document.getElementById('output');
+      const errorElem = document.getElementById('error');
+      
+      errorElem.textContent = '';
+      outputElem.textContent = 'Loading...';
+      outputElem.classList.add('loading');
+      
+      try {
+        console.log('Sending request with target:', target);
+        
+        const res = await fetch('http://localhost:8080/api/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target })
+        });
+        
+        console.log('Response status:', res.status);
+        
+        if (!res.ok) {
+          throw new Error(`Server responded with status: ${res.status}`);
+        }
+        
+        const data = await res.json();
+        console.log('Response data:', data);
+        
+        outputElem.textContent = JSON.stringify(data, null, 2);
+        
+        if (data.recipes && data.recipes.length === 0) {
+          errorElem.textContent = `No recipes found for "${target}"`;
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        errorElem.textContent = `Error: ${error.message}`;
+        outputElem.textContent = 'Failed to fetch data';
+      } finally {
+        outputElem.classList.remove('loading');
+      }
+    };
+  </script>
+</body>
+</html>
