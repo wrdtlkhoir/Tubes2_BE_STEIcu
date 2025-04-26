@@ -18,16 +18,13 @@ type OutputData struct {
 	Recipes  map[string]map[string][][]string `json:"recipes"`  // The recipe data
 }
 
-// ScrapeInitialRecipes scrapes the initial recipes from the Little Alchemy 2 wiki.
+// ScrapeProgressiveRecipes scrapes recipes progressively from the Little Alchemy 2 wiki.
 func ScrapeInitialRecipes() (OutputData, error) {
-	// Initialize the main result structure
+	// Initialize the result structure with starting elements
 	result := OutputData{
 		Elements: []string{"Air", "Earth", "Fire", "Water"},
 		Recipes:  make(map[string]map[string][][]string),
 	}
-
-	// Keep a flat map of all recipes for easier processing
-	allRecipes := make(map[string][][]string)
 
 	res, err := http.Get(url)
 	if err != nil {
@@ -43,120 +40,201 @@ func ScrapeInitialRecipes() (OutputData, error) {
 		return OutputData{}, err
 	}
 
-	// Cari elemen p yang berisi teks target
-	targetParagraph := doc.Find("p").FilterFunction(func(_ int, s *goquery.Selection) bool {
-		return strings.Contains(s.Text(), "These elements can be created by combining only the ")
-	}).First()
+	// Step 1: Count how many tables match our criteria
+	targetTables := []*goquery.Selection{}
+	targetParagraphs := []*goquery.Selection{}
 
-	// Cari tabel yang berada setelah elemen p tersebut
-	table := targetParagraph.NextFiltered("table")
-
-	// Temukan semua baris tabel (tr)
-	rows := table.Find("tr").Slice(1, table.Find("tr").Length())
-
-	// First pass: collect all recipes and element names
-	rows.Each(func(_ int, row *goquery.Selection) {
-		cols := row.Find("td")
-		if cols.Length() == 2 {
-			// Ambil nama elemen dari title td pertama
-			elementName, exists := cols.Eq(0).Find("a").Attr("title")
-			if !exists || elementName == "" {
-				elementName = strings.TrimSpace(cols.Eq(0).Find("a").Text())
+	doc.Find("p").Each(func(_ int, p *goquery.Selection) {
+		if strings.Contains(p.Text(), "These elements can be created by combining only") {
+			nextTable := p.NextFiltered("table")
+			if nextTable.Length() > 0 {
+				targetParagraphs = append(targetParagraphs, p)
+				targetTables = append(targetTables, nextTable)
 			}
-
-			if elementName == "" {
-				return // Skip if we couldn't get the element name
-			}
-
-			// Add to the Elements array, but avoid duplicates
-			found := false
-			for _, el := range result.Elements {
-				if el == elementName {
-					found = true
-					break
-				}
-			}
-			if !found {
-				result.Elements = append(result.Elements, elementName)
-			}
-
-			// Initialize recipe array if it doesn't exist
-			if _, exists := allRecipes[elementName]; !exists {
-				allRecipes[elementName] = [][]string{}
-			}
-
-			// Ambil resep dari td kedua
-			cols.Eq(1).Find("li").Each(func(_ int, li *goquery.Selection) {
-				recipe := []string{}
-				li.Find("a").Each(func(_ int, a *goquery.Selection) {
-					text := a.Text()
-					if text == "" {
-						return // Skip empty elements
-					}
-
-					ingredient, exists := a.Attr("title")
-					if !exists || ingredient == "" {
-						ingredient = strings.TrimSpace(text)
-					}
-					if ingredient != "" {
-						recipe = append(recipe, ingredient)
-					}
-				})
-				if len(recipe) > 0 {
-					allRecipes[elementName] = append(allRecipes[elementName], recipe)
-				}
-			})
 		}
 	})
 
-	// Second pass: build the structured result
-	result.Recipes = make(map[string]map[string][][]string)
+	tableCount := len(targetTables)
+	fmt.Printf("Found %d tables matching the criteria\n", tableCount)
 
-	for element, recipes := range allRecipes {
-		componentMap := make(map[string][][]string)
+	// Step 2: Process tables one by one, building up available elements
+	allElements := map[string]bool{
+		"Air":   true,
+		"Earth": true,
+		"Fire":  true,
+		"Water": true,
+	}
 
-		// Add the element's own recipes
-		componentMap[element] = recipes
+	allRecipesUpToTable := make(map[int]map[string][][]string)
+	elementsPerTable := make(map[int][]string)
 
-		// Add component recipes if available
-		for _, recipe := range recipes {
-			for _, ingredient := range recipe {
-				if ingredientRecipes, exists := allRecipes[ingredient]; exists && len(ingredientRecipes) > 0 {
-					componentMap[ingredient] = ingredientRecipes
+	// Initially, allRecipesUpToTable[0] is empty (only base elements)
+	allRecipesUpToTable[0] = make(map[string][][]string)
+
+	// Process each table in sequence
+	for i := 0; i < tableCount; i++ {
+		currentTable := targetTables[i]
+
+		// Store elements found in this table
+		elementsInThisTable := []string{}
+		recipesInThisTable := make(map[string][][]string)
+
+		// Extract data from this table
+		rows := currentTable.Find("tr").Slice(1, currentTable.Find("tr").Length())
+		rows.Each(func(_ int, row *goquery.Selection) {
+			cols := row.Find("td")
+			if cols.Length() == 2 {
+				// Get element name
+				elementName, exists := cols.Eq(0).Find("a").Attr("title")
+				if !exists || elementName == "" {
+					elementName = strings.TrimSpace(cols.Eq(0).Find("a").Text())
 				}
+
+				if elementName == "" {
+					return
+				}
+
+				// Add this element to the current table's elements
+				elementsInThisTable = append(elementsInThisTable, elementName)
+
+				// Extract recipes for this element
+				elementRecipes := [][]string{}
+				cols.Eq(1).Find("li").Each(func(_ int, li *goquery.Selection) {
+					recipe := []string{}
+					li.Find("a").Each(func(_ int, a *goquery.Selection) {
+						text := a.Text()
+						if text == "" {
+							return
+						}
+
+						ingredient, exists := a.Attr("title")
+						if !exists || ingredient == "" {
+							ingredient = strings.TrimSpace(text)
+						}
+						if ingredient != "" {
+							recipe = append(recipe, ingredient)
+						}
+					})
+					if len(recipe) > 0 {
+						elementRecipes = append(elementRecipes, recipe)
+					}
+				})
+
+				if len(elementRecipes) > 0 {
+					recipesInThisTable[elementName] = elementRecipes
+				}
+			}
+		})
+
+		// Store elements found in this table
+		elementsPerTable[i+1] = elementsInThisTable
+
+		// Copy recipes from previous table
+		allRecipesUpToTable[i+1] = make(map[string][][]string)
+		for elem, recipes := range allRecipesUpToTable[i] {
+			allRecipesUpToTable[i+1][elem] = recipes
+		}
+
+		// Add new recipes
+		for elem, recipes := range recipesInThisTable {
+			allRecipesUpToTable[i+1][elem] = recipes
+		}
+
+		// Update available elements
+		for _, element := range elementsInThisTable {
+			if !allElements[element] {
+				result.Elements = append(result.Elements, element)
+				allElements[element] = true
+			}
+		}
+	}
+
+	// Final step: Build the result structure
+	for tableIndex := 1; tableIndex <= tableCount; tableIndex++ {
+		// Get available elements up to this table
+		availableElements := map[string]bool{
+			"Air":   true,
+			"Earth": true,
+			"Fire":  true,
+			"Water": true,
+		}
+
+		for i := 1; i <= tableIndex; i++ {
+			for _, element := range elementsPerTable[i] {
+				availableElements[element] = true
 			}
 		}
 
-		// Filter recipes and add to result
-		filteredComponentMap := make(map[string][][]string)
-		for comp, compRecipes := range componentMap {
-			filteredRecipes := [][]string{}
-			for _, recipe := range compRecipes {
+		// Process new elements from this table
+		currentTableElements := elementsPerTable[tableIndex]
+		for _, element := range currentTableElements {
+			recipes, exists := allRecipesUpToTable[tableIndex][element]
+			if !exists {
+				continue
+			}
+
+			// Only include valid recipes (using available elements)
+			validRecipes := [][]string{}
+			for _, recipe := range recipes {
 				valid := true
-				for _, ing := range recipe {
-					found := false
-					for _, el := range result.Elements {
-						if el == ing {
-							found = true
-							break
-						}
-					}
-					if !found || ing == element { // Avoid self-reference
+				for _, ingredient := range recipe {
+					if !availableElements[ingredient] {
 						valid = false
 						break
 					}
 				}
 				if valid {
-					filteredRecipes = append(filteredRecipes, recipe)
+					validRecipes = append(validRecipes, recipe)
 				}
 			}
-			if len(filteredRecipes) > 0 {
-				filteredComponentMap[comp] = filteredRecipes
-			}
-		}
 
-		if len(filteredComponentMap) > 0 {
-			result.Recipes[element] = filteredComponentMap
+			if len(validRecipes) > 0 {
+				// Initialize component map for this element
+				if result.Recipes[element] == nil {
+					result.Recipes[element] = make(map[string][][]string)
+				}
+
+				// Add the element's own recipes
+				result.Recipes[element][element] = validRecipes
+
+				// Add component recipes
+				for _, recipe := range validRecipes {
+					for _, ingredient := range recipe {
+						if ingredient == element {
+							continue // Skip self-reference
+						}
+
+						// Only use ingredients that are available up to this table
+						if !availableElements[ingredient] {
+							continue
+						}
+
+						ingredientRecipes, exists := allRecipesUpToTable[tableIndex][ingredient]
+						if !exists || len(ingredientRecipes) == 0 {
+							continue
+						}
+
+						// Filter ingredient recipes to only use available elements
+						validIngredientRecipes := [][]string{}
+						for _, ingRecipe := range ingredientRecipes {
+							valid := true
+							for _, ing := range ingRecipe {
+								if !availableElements[ing] || ing == element {
+									valid = false
+									break
+								}
+							}
+							if valid {
+								validIngredientRecipes = append(validIngredientRecipes, ingRecipe)
+							}
+						}
+
+						if len(validIngredientRecipes) > 0 {
+							result.Recipes[element][ingredient] = validIngredientRecipes
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -177,17 +255,3 @@ func SaveRecipesToJson(data OutputData, filename string) error {
 
 	return nil
 }
-
-// func main() {
-//  data, err := ScrapeInitialRecipes()
-//  if err != nil {
-//      log.Fatalf("Error scraping recipes: %v", err)
-//  }
-
-//  err = SaveRecipesToJson(data, "initial_recipes.json")
-//  if err != nil {
-//      log.Fatalf("Error saving recipes to JSON: %v", err)
-//  }
-
-//  fmt.Println("Initial recipes scraped and saved to initial_recipes.json")
-// }

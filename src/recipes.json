@@ -1,7 +1,0 @@
-{
-    "Mud": [["Water","Earth"]],
-    "Brick": [["Mud","Fire"],["Clay","Stone"]],
-    "Clay": [["Mud","Sand"]],
-    "Stone": [["Earth","Air"]]
-  }
-  
