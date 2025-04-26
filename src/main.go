@@ -19,23 +19,25 @@ type SearchResponse struct {
 	ComponentRecipes map[string][][]string `json:"recipes"`
 }
 
-var recipes map[string]map[string][][]string
+// Change the global variable definition
+var recipeData OutputData
 
-// loadRecipes baca recipes.json ke dalam variabel global
+// Update the loadRecipes function
 func loadRecipes(filename string) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		log.Fatalf("failed to read %s: %v", filename, err)
 	}
-	if err := json.Unmarshal(data, &recipes); err != nil {
+	if err := json.Unmarshal(data, &recipeData); err != nil {
 		log.Fatalf("failed to parse %s: %v", filename, err)
 	}
-	log.Printf("Loaded %d recipes from %s\n", len(recipes), filename)
+	log.Printf("Loaded %d elements and %d recipes from %s\n",
+		len(recipeData.Elements), len(recipeData.Recipes), filename)
 
 	// Debug: Tampilkan semua keys yang tersedia
-	log.Println("Available keys in recipes:")
-	for key := range recipes {
-		log.Printf("- %s\n", key)
+	log.Println("Available elements:")
+	for _, elem := range recipeData.Elements {
+		log.Printf("- %s\n", elem)
 	}
 }
 
@@ -70,7 +72,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Searching for target: '%s'\n", req.Target)
 
 	// Now look up the component recipes for the requested element
-	componentRecipes, ok := recipes[req.Target]
+	componentRecipes, ok := recipeData.Recipes[req.Target]
 	if !ok {
 		log.Printf("Target '%s' not found in recipes\n", req.Target)
 		componentRecipes = make(map[string][][]string)
@@ -94,13 +96,13 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	// First scrape the recipes
 	var err error
-	recipes, err = ScrapeInitialRecipes()
+	recipeData, err = ScrapeInitialRecipes()
 	if err != nil {
 		log.Fatalf("Error scraping recipes: %v", err)
 	}
 
 	// Save them to file
-	err = SaveRecipesToJson(recipes, "initial_recipes.json")
+	err = SaveRecipesToJson(recipeData, "initial_recipes.json")
 	if err != nil {
 		log.Fatalf("Error saving recipes to JSON: %v", err)
 	}

@@ -1,220 +1,234 @@
 {
-  "Dust": {
-    "Dust": [
-      [
-        "Earth",
-        "Air"
+  "elements": [
+    "Dust",
+    "Energy",
+    "Land",
+    "Lava",
+    "Mist",
+    "Mud",
+    "Pressure",
+    "Puddle",
+    "Smoke",
+    "Steam"
+  ],
+  "recipes": {
+    "Dust": {
+      "Dust": [
+        [
+          "Earth",
+          "Air"
+        ],
+        [
+          "Soil",
+          "Air"
+        ],
+        [
+          "Land",
+          "Air"
+        ]
       ],
-      [
-        "Soil",
-        "Air"
-      ],
-      [
-        "Land",
-        "Air"
+      "Land": [
+        [
+          "Soil",
+          "Soil"
+        ]
       ]
-    ],
-    "Land": [
-      [
-        "Soil",
-        "Soil"
+    },
+    "Energy": {
+      "Energy": [
+        [
+          "Fire",
+          "Fire"
+        ],
+        [
+          "Fire",
+          "Science"
+        ],
+        [
+          "Fire",
+          "Atmosphere"
+        ],
+        [
+          "Heat",
+          "Science"
+        ]
       ]
-    ]
-  },
-  "Energy": {
-    "Energy": [
-      [
-        "Fire",
-        "Fire"
-      ],
-      [
-        "Fire",
-        "Science"
-      ],
-      [
-        "Fire",
-        "Atmosphere"
-      ],
-      [
-        "Heat",
-        "Science"
+    },
+    "Land": {
+      "Land": [
+        [
+          "Soil",
+          "Soil"
+        ],
+        [
+          "Soil",
+          "Big"
+        ],
+        [
+          "Continent",
+          "Small"
+        ],
+        [
+          "Earth",
+          "Earth"
+        ],
+        [
+          "Earth",
+          "Stone"
+        ]
       ]
-    ]
-  },
-  "Land": {
-    "Land": [
-      [
-        "Soil",
-        "Soil"
-      ],
-      [
-        "Soil",
-        "Big"
-      ],
-      [
-        "Continent",
-        "Small"
-      ],
-      [
-        "Earth",
-        "Earth"
-      ],
-      [
-        "Earth",
-        "Stone"
+    },
+    "Lava": {
+      "Lava": [
+        [
+          "Earth",
+          "Fire"
+        ],
+        [
+          "Earth",
+          "Heat"
+        ],
+        [
+          "Earth",
+          "Liquid"
+        ]
       ]
-    ]
-  },
-  "Lava": {
-    "Lava": [
-      [
-        "Earth",
-        "Fire"
+    },
+    "Mist": {
+      "Mist": [
+        [
+          "Air",
+          "Water"
+        ],
+        [
+          "Air",
+          "Steam"
+        ],
+        [
+          "Air",
+          "Rain"
+        ]
       ],
-      [
-        "Earth",
-        "Heat"
-      ],
-      [
-        "Earth",
-        "Liquid"
+      "Steam": [
+        [
+          "Water",
+          "Heat"
+        ]
       ]
-    ]
-  },
-  "Mist": {
-    "Mist": [
-      [
-        "Air",
-        "Water"
-      ],
-      [
-        "Air",
-        "Steam"
-      ],
-      [
-        "Air",
-        "Rain"
+    },
+    "Mud": {
+      "Mud": [
+        [
+          "Water",
+          "Earth"
+        ],
+        [
+          "Water",
+          "Soil"
+        ]
       ]
-    ],
-    "Steam": [
-      [
-        "Water",
-        "Heat"
+    },
+    "Pressure": {
+      "Pressure": [
+        [
+          "Air",
+          "Air"
+        ],
+        [
+          "Air",
+          "Atmosphere"
+        ],
+        [
+          "Atmosphere",
+          "Atmosphere"
+        ],
+        [
+          "Geyser",
+          "Science"
+        ],
+        [
+          "Ocean",
+          "Ocean"
+        ]
       ]
-    ]
-  },
-  "Mud": {
-    "Mud": [
-      [
-        "Water",
-        "Earth"
-      ],
-      [
-        "Water",
-        "Soil"
+    },
+    "Puddle": {
+      "Puddle": [
+        [
+          "Water",
+          "Water"
+        ],
+        [
+          "Pond",
+          "Small"
+        ]
       ]
-    ]
-  },
-  "Pressure": {
-    "Pressure": [
-      [
-        "Air",
-        "Air"
-      ],
-      [
-        "Air",
-        "Atmosphere"
-      ],
-      [
-        "Atmosphere",
-        "Atmosphere"
-      ],
-      [
-        "Geyser",
-        "Science"
-      ],
-      [
-        "Ocean",
-        "Ocean"
+    },
+    "Smoke": {
+      "Smoke": [
+        [
+          "Earth",
+          "Gas"
+        ],
+        [
+          "Campfire",
+          "Water"
+        ],
+        [
+          "Campfire",
+          "Time"
+        ],
+        [
+          "Campfire",
+          "Storm"
+        ],
+        [
+          "Fire",
+          "Plant"
+        ],
+        [
+          "Fire",
+          "Grass"
+        ],
+        [
+          "Fire",
+          "Tree"
+        ],
+        [
+          "Fire",
+          "Wood"
+        ],
+        [
+          "Fire",
+          "Air"
+        ]
       ]
-    ]
-  },
-  "Puddle": {
-    "Puddle": [
-      [
-        "Water",
-        "Water"
+    },
+    "Steam": {
+      "Lava": [
+        [
+          "Earth",
+          "Fire"
+        ]
       ],
-      [
-        "Pond",
-        "Small"
+      "Steam": [
+        [
+          "Water",
+          "Heat"
+        ],
+        [
+          "Water",
+          "Fire"
+        ],
+        [
+          "Water",
+          "Lava"
+        ],
+        [
+          "Water",
+          "Gas"
+        ]
       ]
-    ]
-  },
-  "Smoke": {
-    "Smoke": [
-      [
-        "Earth",
-        "Gas"
-      ],
-      [
-        "Campfire",
-        "Water"
-      ],
-      [
-        "Campfire",
-        "Time"
-      ],
-      [
-        "Campfire",
-        "Storm"
-      ],
-      [
-        "Fire",
-        "Plant"
-      ],
-      [
-        "Fire",
-        "Grass"
-      ],
-      [
-        "Fire",
-        "Tree"
-      ],
-      [
-        "Fire",
-        "Wood"
-      ],
-      [
-        "Fire",
-        "Air"
-      ]
-    ]
-  },
-  "Steam": {
-    "Lava": [
-      [
-        "Earth",
-        "Fire"
-      ]
-    ],
-    "Steam": [
-      [
-        "Water",
-        "Heat"
-      ],
-      [
-        "Water",
-        "Fire"
-      ],
-      [
-        "Water",
-        "Lava"
-      ],
-      [
-        "Water",
-        "Gas"
-      ]
-    ]
+    }
   }
 }
