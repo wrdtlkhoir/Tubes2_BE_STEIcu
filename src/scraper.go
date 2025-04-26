@@ -238,6 +238,30 @@ func ScrapeInitialRecipes() (OutputData, error) {
 		}
 	}
 
+	// Filter out elements with no valid recipes
+	filteredElements := []string{}
+
+	// Always keep the starting elements
+	for _, element := range []string{"Air", "Earth", "Fire", "Water"} {
+		filteredElements = append(filteredElements, element)
+	}
+
+	// Filter all other elements
+	for _, element := range result.Elements {
+		// Skip starting elements as we've already added them
+		if element == "Air" || element == "Earth" || element == "Fire" || element == "Water" {
+			continue
+		}
+
+		// Check if element has valid recipes
+		if recipes, exists := result.Recipes[element]; exists && len(recipes) > 0 {
+			filteredElements = append(filteredElements, element)
+		}
+	}
+
+	// Update the elements list
+	result.Elements = filteredElements
+
 	return result, nil
 }
 
