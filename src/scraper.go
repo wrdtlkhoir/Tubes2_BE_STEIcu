@@ -22,7 +22,7 @@ type OutputData struct {
 func ScrapeInitialRecipes() (OutputData, error) {
 	// Initialize the main result structure
 	result := OutputData{
-		Elements: []string{},
+		Elements: []string{"Air", "Earth", "Fire", "Water"}, // Add default elements
 		Recipes:  make(map[string]map[string][][]string),
 	}
 
@@ -68,8 +68,17 @@ func ScrapeInitialRecipes() (OutputData, error) {
 				return // Skip if we couldn't get the element name
 			}
 
-			// Add to the Elements array
-			result.Elements = append(result.Elements, elementName)
+			// Add to the Elements array, but avoid duplicates
+			found := false
+			for _, el := range result.Elements {
+				if el == elementName {
+					found = true
+					break
+				}
+			}
+			if !found {
+				result.Elements = append(result.Elements, elementName)
+			}
 
 			// Initialize recipe array if it doesn't exist
 			if _, exists := allRecipes[elementName]; !exists {
@@ -101,27 +110,37 @@ func ScrapeInitialRecipes() (OutputData, error) {
 	})
 
 	// Second pass: build the structured result
+	result.Recipes = make(map[string]map[string][][]string) // Initialize the Recipes map
+
 	for element, recipes := range allRecipes {
 		componentMap := make(map[string][][]string)
 
-		// Add the element's own recipes
-		componentMap[element] = recipes
-
-		// Add component recipes (just the first row for now as requested)
+		// Add the element's own recipes, filtered by available elements
+		filteredRecipes := [][]string{}
 		for _, recipe := range recipes {
+			valid := true
 			for _, ingredient := range recipe {
-				// Only add non-basic elements (those that have recipes)
-				if ingredientRecipes, exists := allRecipes[ingredient]; exists && len(ingredientRecipes) > 0 {
-					// Just add the first recipe row
-					if len(ingredientRecipes) > 0 {
-						componentMap[ingredient] = [][]string{ingredientRecipes[0]}
+				found := false
+				for _, el := range result.Elements {
+					if el == ingredient {
+						found = true
+						break
 					}
 				}
+				if !found || ingredient == element { // Skip recipes that refer to the element itself
+					valid = false
+					break
+				}
+			}
+			if valid {
+				filteredRecipes = append(filteredRecipes, recipe)
 			}
 		}
 
-		// Add to result
-		result.Recipes[element] = componentMap
+		if len(filteredRecipes) > 0 {
+			componentMap[element] = filteredRecipes
+			result.Recipes[element] = componentMap
+		}
 	}
 
 	return result, nil
@@ -143,15 +162,15 @@ func SaveRecipesToJson(data OutputData, filename string) error {
 }
 
 // func main() {
-// 	data, err := ScrapeInitialRecipes()
-// 	if err != nil {
-// 		log.Fatalf("Error scraping recipes: %v", err)
-// 	}
+//  data, err := ScrapeInitialRecipes()
+//  if err != nil {
+//      log.Fatalf("Error scraping recipes: %v", err)
+//  }
 
-// 	err = SaveRecipesToJson(data, "initial_recipes.json")
-// 	if err != nil {
-// 		log.Fatalf("Error saving recipes to JSON: %v", err)
-// 	}
+//  err = SaveRecipesToJson(data, "initial_recipes.json")
+//  if err != nil {
+//      log.Fatalf("Error saving recipes to JSON: %v", err)
+//  }
 
-// 	fmt.Println("Initial recipes scraped and saved to initial_recipes.json")
+//  fmt.Println("Initial recipes scraped and saved to initial_recipes.json")
 // }
