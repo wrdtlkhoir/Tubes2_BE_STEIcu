@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	// Import package scraper if needed
 )
 
 // SearchRequest adalah struktur input API
@@ -13,22 +14,23 @@ type SearchRequest struct {
 }
 
 // SearchResponse adalah struktur output API
+// SearchResponse adalah struktur output API
 type SearchResponse struct {
-	Recipes [][]string `json:"recipes"`
+	ComponentRecipes map[string][][]string `json:"recipes"`
 }
 
-var recipes map[string][][]string
+var recipes map[string]map[string][][]string
 
 // loadRecipes baca recipes.json ke dalam variabel global
-func loadRecipes() {
-	data, err := os.ReadFile("recipes.json")
+func loadRecipes(filename string) {
+	data, err := os.ReadFile(filename)
 	if err != nil {
-		log.Fatalf("failed to read recipes.json: %v", err)
+		log.Fatalf("failed to read %s: %v", filename, err)
 	}
 	if err := json.Unmarshal(data, &recipes); err != nil {
-		log.Fatalf("failed to parse recipes.json: %v", err)
+		log.Fatalf("failed to parse %s: %v", filename, err)
 	}
-	log.Printf("Loaded %d recipes\n", len(recipes))
+	log.Printf("Loaded %d recipes from %s\n", len(recipes), filename)
 
 	// Debug: Tampilkan semua keys yang tersedia
 	log.Println("Available keys in recipes:")
@@ -67,16 +69,16 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Searching for target: '%s'\n", req.Target)
 
-	// Untuk test, kembalikan recipes[target] jika ada
-	result, ok := recipes[req.Target]
+	// Now look up the component recipes for the requested element
+	componentRecipes, ok := recipes[req.Target]
 	if !ok {
 		log.Printf("Target '%s' not found in recipes\n", req.Target)
-		result = [][]string{}
+		componentRecipes = make(map[string][][]string)
 	} else {
-		log.Printf("Found %d recipes for target '%s'\n", len(result), req.Target)
+		log.Printf("Found recipes for target '%s'\n", req.Target)
 	}
 
-	resp := SearchResponse{Recipes: result}
+	resp := SearchResponse{ComponentRecipes: componentRecipes}
 	respData, err := json.Marshal(resp)
 	if err != nil {
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
@@ -90,7 +92,21 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	loadRecipes()
+	// First scrape the recipes
+	var err error
+	recipes, err = ScrapeInitialRecipes()
+	if err != nil {
+		log.Fatalf("Error scraping recipes: %v", err)
+	}
+
+	// Save them to file
+	err = SaveRecipesToJson(recipes, "initial_recipes.json")
+	if err != nil {
+		log.Fatalf("Error saving recipes to JSON: %v", err)
+	}
+
+	// Alternatively, if you still want to load from file
+	// loadRecipes("initial_recipes.json")
 
 	http.HandleFunc("/api/search", searchHandler)
 

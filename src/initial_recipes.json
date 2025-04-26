@@ -1,0 +1,220 @@
+{
+  "Dust": {
+    "Dust": [
+      [
+        "Earth",
+        "Air"
+      ],
+      [
+        "Soil",
+        "Air"
+      ],
+      [
+        "Land",
+        "Air"
+      ]
+    ],
+    "Land": [
+      [
+        "Soil",
+        "Soil"
+      ]
+    ]
+  },
+  "Energy": {
+    "Energy": [
+      [
+        "Fire",
+        "Fire"
+      ],
+      [
+        "Fire",
+        "Science"
+      ],
+      [
+        "Fire",
+        "Atmosphere"
+      ],
+      [
+        "Heat",
+        "Science"
+      ]
+    ]
+  },
+  "Land": {
+    "Land": [
+      [
+        "Soil",
+        "Soil"
+      ],
+      [
+        "Soil",
+        "Big"
+      ],
+      [
+        "Continent",
+        "Small"
+      ],
+      [
+        "Earth",
+        "Earth"
+      ],
+      [
+        "Earth",
+        "Stone"
+      ]
+    ]
+  },
+  "Lava": {
+    "Lava": [
+      [
+        "Earth",
+        "Fire"
+      ],
+      [
+        "Earth",
+        "Heat"
+      ],
+      [
+        "Earth",
+        "Liquid"
+      ]
+    ]
+  },
+  "Mist": {
+    "Mist": [
+      [
+        "Air",
+        "Water"
+      ],
+      [
+        "Air",
+        "Steam"
+      ],
+      [
+        "Air",
+        "Rain"
+      ]
+    ],
+    "Steam": [
+      [
+        "Water",
+        "Heat"
+      ]
+    ]
+  },
+  "Mud": {
+    "Mud": [
+      [
+        "Water",
+        "Earth"
+      ],
+      [
+        "Water",
+        "Soil"
+      ]
+    ]
+  },
+  "Pressure": {
+    "Pressure": [
+      [
+        "Air",
+        "Air"
+      ],
+      [
+        "Air",
+        "Atmosphere"
+      ],
+      [
+        "Atmosphere",
+        "Atmosphere"
+      ],
+      [
+        "Geyser",
+        "Science"
+      ],
+      [
+        "Ocean",
+        "Ocean"
+      ]
+    ]
+  },
+  "Puddle": {
+    "Puddle": [
+      [
+        "Water",
+        "Water"
+      ],
+      [
+        "Pond",
+        "Small"
+      ]
+    ]
+  },
+  "Smoke": {
+    "Smoke": [
+      [
+        "Earth",
+        "Gas"
+      ],
+      [
+        "Campfire",
+        "Water"
+      ],
+      [
+        "Campfire",
+        "Time"
+      ],
+      [
+        "Campfire",
+        "Storm"
+      ],
+      [
+        "Fire",
+        "Plant"
+      ],
+      [
+        "Fire",
+        "Grass"
+      ],
+      [
+        "Fire",
+        "Tree"
+      ],
+      [
+        "Fire",
+        "Wood"
+      ],
+      [
+        "Fire",
+        "Air"
+      ]
+    ]
+  },
+  "Steam": {
+    "Lava": [
+      [
+        "Earth",
+        "Fire"
+      ]
+    ],
+    "Steam": [
+      [
+        "Water",
+        "Heat"
+      ],
+      [
+        "Water",
+        "Fire"
+      ],
+      [
+        "Water",
+        "Lava"
+      ],
+      [
+        "Water",
+        "Gas"
+      ]
+    ]
+  }
+}
