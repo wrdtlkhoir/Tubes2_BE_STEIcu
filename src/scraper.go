@@ -22,7 +22,7 @@ type OutputData struct {
 func ScrapeInitialRecipes() (OutputData, error) {
 	// Initialize the main result structure
 	result := OutputData{
-		Elements: []string{"Air", "Earth", "Fire", "Water"}, // Add default elements
+		Elements: []string{"Air", "Earth", "Fire", "Water"},
 		Recipes:  make(map[string]map[string][][]string),
 	}
 
@@ -52,7 +52,7 @@ func ScrapeInitialRecipes() (OutputData, error) {
 	table := targetParagraph.NextFiltered("table")
 
 	// Temukan semua baris tabel (tr)
-	rows := table.Find("tr").Slice(1, table.Find("tr").Length()) // Lewati baris header
+	rows := table.Find("tr").Slice(1, table.Find("tr").Length())
 
 	// First pass: collect all recipes and element names
 	rows.Each(func(_ int, row *goquery.Selection) {
@@ -110,36 +110,53 @@ func ScrapeInitialRecipes() (OutputData, error) {
 	})
 
 	// Second pass: build the structured result
-	result.Recipes = make(map[string]map[string][][]string) // Initialize the Recipes map
+	result.Recipes = make(map[string]map[string][][]string)
 
 	for element, recipes := range allRecipes {
 		componentMap := make(map[string][][]string)
 
-		// Add the element's own recipes, filtered by available elements
-		filteredRecipes := [][]string{}
+		// Add the element's own recipes
+		componentMap[element] = recipes
+
+		// Add component recipes if available
 		for _, recipe := range recipes {
-			valid := true
 			for _, ingredient := range recipe {
-				found := false
-				for _, el := range result.Elements {
-					if el == ingredient {
-						found = true
-						break
-					}
+				if ingredientRecipes, exists := allRecipes[ingredient]; exists && len(ingredientRecipes) > 0 {
+					componentMap[ingredient] = ingredientRecipes
 				}
-				if !found || ingredient == element { // Skip recipes that refer to the element itself
-					valid = false
-					break
-				}
-			}
-			if valid {
-				filteredRecipes = append(filteredRecipes, recipe)
 			}
 		}
 
-		if len(filteredRecipes) > 0 {
-			componentMap[element] = filteredRecipes
-			result.Recipes[element] = componentMap
+		// Filter recipes and add to result
+		filteredComponentMap := make(map[string][][]string)
+		for comp, compRecipes := range componentMap {
+			filteredRecipes := [][]string{}
+			for _, recipe := range compRecipes {
+				valid := true
+				for _, ing := range recipe {
+					found := false
+					for _, el := range result.Elements {
+						if el == ing {
+							found = true
+							break
+						}
+					}
+					if !found || ing == element { // Avoid self-reference
+						valid = false
+						break
+					}
+				}
+				if valid {
+					filteredRecipes = append(filteredRecipes, recipe)
+				}
+			}
+			if len(filteredRecipes) > 0 {
+				filteredComponentMap[comp] = filteredRecipes
+			}
+		}
+
+		if len(filteredComponentMap) > 0 {
+			result.Recipes[element] = filteredComponentMap
 		}
 	}
 

@@ -26,6 +26,12 @@
           "Land",
           "Air"
         ]
+      ],
+      "Land": [
+        [
+          "Earth",
+          "Earth"
+        ]
       ]
     },
     "Energy": {
@@ -62,6 +68,16 @@
           "Air",
           "Steam"
         ]
+      ],
+      "Steam": [
+        [
+          "Water",
+          "Fire"
+        ],
+        [
+          "Water",
+          "Lava"
+        ]
       ]
     },
     "Mud": {
@@ -97,6 +113,12 @@
       ]
     },
     "Steam": {
+      "Lava": [
+        [
+          "Earth",
+          "Fire"
+        ]
+      ],
       "Steam": [
         [
           "Water",
