@@ -18,7 +18,7 @@ type OutputData struct {
 	Recipes  map[string]map[string][][]string `json:"recipes"`  // The recipe data
 }
 
-// ScrapeProgressiveRecipes scrapes recipes progressively from the Little Alchemy 2 wiki.
+// ScrapeRecursiveRecipes scrapes recipes recursively from the Little Alchemy 2 wiki.
 func ScrapeInitialRecipes() (OutputData, error) {
 	// Initialize the result structure with starting elements
 	result := OutputData{
@@ -56,6 +56,13 @@ func ScrapeInitialRecipes() (OutputData, error) {
 
 	tableCount := len(targetTables)
 	fmt.Printf("Found %d tables matching the criteria\n", tableCount)
+
+	// // Limit to first 5 tables
+	// maxTables := 10
+	// if tableCount > maxTables {
+	// 	tableCount = maxTables
+	// 	targetTables = targetTables[:maxTables]
+	// }
 
 	// Step 2: Process tables one by one, building up available elements
 	allElements := map[string]bool{
@@ -149,7 +156,17 @@ func ScrapeInitialRecipes() (OutputData, error) {
 		}
 	}
 
-	// Final step: Build the result structure
+	// Create a map to track which elements we've already processed
+	// processedElements := make(map[string]bool)
+
+	// For this step, we'll build the initial recipe structure first (just like in the original code)
+	// Then we'll add the recursive recipes in a separate pass
+	intermediateResult := OutputData{
+		Elements: result.Elements,
+		Recipes:  make(map[string]map[string][][]string),
+	}
+
+	// Step 3: Build the initial result structure exactly as in the original code
 	for tableIndex := 1; tableIndex <= tableCount; tableIndex++ {
 		// Get available elements up to this table
 		availableElements := map[string]bool{
@@ -190,14 +207,14 @@ func ScrapeInitialRecipes() (OutputData, error) {
 
 			if len(validRecipes) > 0 {
 				// Initialize component map for this element
-				if result.Recipes[element] == nil {
-					result.Recipes[element] = make(map[string][][]string)
+				if intermediateResult.Recipes[element] == nil {
+					intermediateResult.Recipes[element] = make(map[string][][]string)
 				}
 
 				// Add the element's own recipes
-				result.Recipes[element][element] = validRecipes
+				intermediateResult.Recipes[element][element] = validRecipes
 
-				// Add component recipes
+				// Add component recipes (only one level, as in the original code)
 				for _, recipe := range validRecipes {
 					for _, ingredient := range recipe {
 						if ingredient == element {
@@ -230,7 +247,7 @@ func ScrapeInitialRecipes() (OutputData, error) {
 						}
 
 						if len(validIngredientRecipes) > 0 {
-							result.Recipes[element][ingredient] = validIngredientRecipes
+							intermediateResult.Recipes[element][ingredient] = validIngredientRecipes
 						}
 					}
 				}
@@ -238,7 +255,146 @@ func ScrapeInitialRecipes() (OutputData, error) {
 		}
 	}
 
+	// Step 4: Now build the final result with recursive recipes
+	// We'll use the intermediate result as a starting point
+
+	// The base elements don't need recipes
+	baseElements := map[string]bool{
+		"Air":   true,
+		"Earth": true,
+		"Fire":  true,
+		"Water": true,
+	}
+
+	// Copy the elements list
+	result.Elements = intermediateResult.Elements
+
+	// For each element in the intermediate result
+	for element, elementRecipes := range intermediateResult.Recipes {
+		// Skip base elements
+		if baseElements[element] {
+			continue
+		}
+
+		// Initialize the recipe map for this element in the final result
+		result.Recipes[element] = make(map[string][][]string)
+
+		// First, copy the element's own recipes
+		result.Recipes[element][element] = elementRecipes[element]
+
+		// Process each ingredient
+		for _, recipe := range elementRecipes[element] {
+			for _, ingredient := range recipe {
+				// Skip base elements
+				if baseElements[ingredient] {
+					continue
+				}
+
+				// Reset processed elements for each new top-level ingredient
+				localProcessed := make(map[string]bool)
+				localProcessed[element] = true // Avoid recursion back to the target element
+
+				// Recursively get recipes for this ingredient
+				getRecursiveRecipes(
+					ingredient,
+					ingredient,
+					intermediateResult.Recipes,
+					result.Recipes[element],
+					localProcessed,
+					baseElements,
+				)
+			}
+		}
+	}
+
 	return result, nil
+}
+
+// getRecursiveRecipes recursively adds recipes for an ingredient and its components
+func getRecursiveRecipes(
+	currentElement string,
+	originalIngredient string,
+	allRecipes map[string]map[string][][]string,
+	targetRecipes map[string][][]string,
+	processed map[string]bool,
+	baseElements map[string]bool,
+) {
+	// Mark as processed to avoid cycles
+	processed[currentElement] = true
+
+	// Get recipes for the current element
+	elementRecipes, exists := allRecipes[currentElement]
+	if !exists {
+		return
+	}
+
+	// Add the direct recipes for this element if it's the original ingredient or its subcomponent
+	if directRecipes, ok := elementRecipes[currentElement]; ok && len(directRecipes) > 0 {
+		// Only add if not already present
+		if _, exists := targetRecipes[currentElement]; !exists {
+			targetRecipes[currentElement] = directRecipes
+		}
+	}
+
+	// Get the component recipes if this is the original ingredient
+	if currentElement == originalIngredient {
+		// Add component recipes for all ingredients in recipes of currentElement
+		for ingredient, recipes := range elementRecipes {
+			if ingredient == currentElement || baseElements[ingredient] || processed[ingredient] {
+				continue
+			}
+
+			// Add these recipes
+			targetRecipes[ingredient] = recipes
+
+			// Recursively process this ingredient
+			getRecursiveRecipes(
+				ingredient,
+				originalIngredient,
+				allRecipes,
+				targetRecipes,
+				processed,
+				baseElements,
+			)
+		}
+	}
+
+	// For each recipe of the current element, process its ingredients recursively
+	selfRecipes, exists := elementRecipes[currentElement]
+	if exists {
+		for _, recipe := range selfRecipes {
+			for _, ingredient := range recipe {
+				// Skip base elements and already processed elements
+				if baseElements[ingredient] || processed[ingredient] {
+					continue
+				}
+
+				// Get recipes for this ingredient
+				ingredientRecipes, exists := allRecipes[ingredient]
+				if !exists || len(ingredientRecipes) == 0 {
+					continue
+				}
+
+				// If this ingredient has its own recipes, add them
+				if directRecipes, ok := ingredientRecipes[ingredient]; ok && len(directRecipes) > 0 {
+					// Only add if not already present
+					if _, exists := targetRecipes[ingredient]; !exists {
+						targetRecipes[ingredient] = directRecipes
+					}
+				}
+
+				// Recursively process this ingredient
+				getRecursiveRecipes(
+					ingredient,
+					originalIngredient,
+					allRecipes,
+					targetRecipes,
+					processed,
+					baseElements,
+				)
+			}
+		}
+	}
 }
 
 // SaveRecipesToJson saves the recipes to a JSON file.
