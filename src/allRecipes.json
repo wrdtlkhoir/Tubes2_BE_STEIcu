@@ -139,7 +139,6 @@
     "Park",
     "Prism",
     "Rain",
-    "Ruins",
     "Safety glasses",
     "Skyscraper",
     "Space",
@@ -176,7 +175,6 @@
     "Alchemist",
     "Allergy",
     "Antarctica",
-    "Archeologist",
     "Astronaut",
     "Astronomer",
     "Beaver",
@@ -943,10 +941,6 @@
     ],
     "Alcohol": [
       [
-        "Time",
-        "Juice"
-      ],
-      [
         "Wheat",
         "Fruit"
       ],
@@ -1237,16 +1231,6 @@
         "Swimming pool"
       ]
     ],
-    "Archeologist": [
-      [
-        "Ruins",
-        "Human"
-      ],
-      [
-        "Ruins",
-        "Science"
-      ]
-    ],
     "Archipelago": [
       [
         "Island",
@@ -1329,10 +1313,6 @@
       [
         "Campfire",
         "Water"
-      ],
-      [
-        "Campfire",
-        "Time"
       ],
       [
         "Campfire",
@@ -2121,14 +2101,6 @@
       [
         "Egg",
         "Airplane"
-      ],
-      [
-        "Time",
-        "Dinosaur"
-      ],
-      [
-        "Time",
-        "Pterodactyl"
       ]
     ],
     "Birdcage": [
@@ -2316,10 +2288,6 @@
       ]
     ],
     "Bone": [
-      [
-        "Time",
-        "Corpse"
-      ],
       [
         "Vulture",
         "Corpse"
@@ -3344,10 +3312,6 @@
       ],
       [
         "Milk",
-        "Time"
-      ],
-      [
-        "Milk",
         "Cook"
       ],
       [
@@ -3663,22 +3627,6 @@
     ],
     "Clock": [
       [
-        "Time",
-        "Electricity"
-      ],
-      [
-        "Time",
-        "Wheel"
-      ],
-      [
-        "Time",
-        "Tool"
-      ],
-      [
-        "Time",
-        "Machine"
-      ],
-      [
         "Sundial",
         "Machine"
       ],
@@ -3758,10 +3706,6 @@
       ],
       [
         "Rock",
-        "Peat"
-      ],
-      [
-        "Time",
         "Peat"
       ],
       [
@@ -4095,10 +4039,6 @@
       [
         "Human",
         "Grim reaper"
-      ],
-      [
-        "Human",
-        "Time"
       ],
       [
         "Human",
@@ -4461,10 +4401,6 @@
       [
         "Day",
         "Night"
-      ],
-      [
-        "Time",
-        "Night"
       ]
     ],
     "Day": [
@@ -4475,21 +4411,9 @@
       [
         "Sun",
         "Night"
-      ],
-      [
-        "Sun",
-        "Time"
-      ],
-      [
-        "Time",
-        "Dawn"
       ]
     ],
     "Death": [
-      [
-        "Time",
-        "Life"
-      ],
       [
         "Corpse",
         "Philosophy"
@@ -4574,10 +4498,6 @@
       ]
     ],
     "Dinosaur": [
-      [
-        "Lizard",
-        "Time"
-      ],
       [
         "Lizard",
         "Big"
@@ -4853,10 +4773,6 @@
       [
         "Bird",
         "Lake"
-      ],
-      [
-        "Duckling",
-        "Time"
       ],
       [
         "Duckling",
@@ -5279,10 +5195,6 @@
       [
         "Pressure",
         "Lava"
-      ],
-      [
-        "Volcano",
-        "Time"
       ]
     ],
     "Excalibur": [
@@ -5439,10 +5351,6 @@
       [
         "Tree",
         "Village"
-      ],
-      [
-        "Time",
-        "Family"
       ]
     ],
     "Farm": [
@@ -5851,10 +5759,6 @@
         "Big"
       ],
       [
-        "Rain",
-        "Time"
-      ],
-      [
         "House",
         "River"
       ],
@@ -6077,14 +5981,6 @@
         "Rock"
       ],
       [
-        "Dinosaur",
-        "Time"
-      ],
-      [
-        "Bone",
-        "Time"
-      ],
-      [
         "Bone",
         "Earth"
       ],
@@ -6105,10 +6001,6 @@
         "Rock"
       ],
       [
-        "Grave",
-        "Time"
-      ],
-      [
         "Skeleton",
         "Earth"
       ],
@@ -6119,10 +6011,6 @@
       [
         "Skeleton",
         "Rock"
-      ],
-      [
-        "Skeleton",
-        "Time"
       ]
     ],
     "Fountain": [
@@ -6276,10 +6164,6 @@
       ]
     ],
     "Fruit": [
-      [
-        "Flower",
-        "Time"
-      ],
       [
         "Flower",
         "Rain"
@@ -6785,10 +6669,6 @@
       [
         "Mountain range",
         "Snow"
-      ],
-      [
-        "Time",
-        "Ice"
       ]
     ],
     "Glass": [
@@ -7644,10 +7524,6 @@
       ],
       [
         "Bee",
-        "Time"
-      ],
-      [
-        "Bee",
         "Bee"
       ],
       [
@@ -7772,18 +7648,6 @@
       ],
       [
         "Sand",
-        "Time"
-      ],
-      [
-        "Sand",
-        "Container"
-      ],
-      [
-        "Glass",
-        "Time"
-      ],
-      [
-        "Time",
         "Container"
       ]
     ],
@@ -7810,14 +7674,6 @@
       ]
     ],
     "Human": [
-      [
-        "Time",
-        "Animal"
-      ],
-      [
-        "Time",
-        "Monkey"
-      ],
       [
         "Clay",
         "Life"
@@ -8682,10 +8538,6 @@
     "Legend": [
       [
         "Story",
-        "Time"
-      ],
-      [
-        "Story",
         "Story"
       ],
       [
@@ -8695,10 +8547,6 @@
       [
         "Story",
         "Fairy tale"
-      ],
-      [
-        "Fairy tale",
-        "Time"
       ],
       [
         "Fairy tale",
@@ -8741,10 +8589,6 @@
       [
         "Primordial soup",
         "Electricity"
-      ],
-      [
-        "Primordial soup",
-        "Time"
       ],
       [
         "Primordial soup",
@@ -9714,23 +9558,11 @@
     "Mold": [
       [
         "Bread",
-        "Time"
-      ],
-      [
-        "Bread",
         "Bacteria"
       ],
       [
         "Fruit",
-        "Time"
-      ],
-      [
-        "Fruit",
         "Bacteria"
-      ],
-      [
-        "Vegetable",
-        "Time"
       ],
       [
         "Vegetable",
@@ -9779,10 +9611,6 @@
       [
         "Sky",
         "Stone"
-      ],
-      [
-        "Sky",
-        "Time"
       ],
       [
         "Stone",
@@ -10237,18 +10065,6 @@
       [
         "Sky",
         "Moon"
-      ],
-      [
-        "Time",
-        "Moon"
-      ],
-      [
-        "Time",
-        "Day"
-      ],
-      [
-        "Time",
-        "Twilight"
       ]
     ],
     "Ninja": [
@@ -10876,15 +10692,7 @@
       ],
       [
         "Swamp",
-        "Time"
-      ],
-      [
-        "Swamp",
         "Pressure"
-      ],
-      [
-        "Time",
-        "Grass"
       ]
     ],
     "Pebble": [
@@ -11025,10 +10833,6 @@
       [
         "Fossil",
         "Pressure"
-      ],
-      [
-        "Fossil",
-        "Time"
       ],
       [
         "Fossil",
@@ -12185,36 +11989,6 @@
         "Flower"
       ]
     ],
-    "Ruins": [
-      [
-        "Time",
-        "Castle"
-      ],
-      [
-        "Time",
-        "House"
-      ],
-      [
-        "Time",
-        "Village"
-      ],
-      [
-        "Time",
-        "City"
-      ],
-      [
-        "Time",
-        "Skyscraper"
-      ],
-      [
-        "Time",
-        "Hospital"
-      ],
-      [
-        "Time",
-        "Farm"
-      ]
-    ],
     "Ruler": [
       [
         "Wood",
@@ -12899,10 +12673,6 @@
       [
         "Pollen",
         "Bee"
-      ],
-      [
-        "Time",
-        "Flower"
       ]
     ],
     "Sewing machine": [
@@ -13081,10 +12851,6 @@
     ],
     "Skeleton": [
       [
-        "Time",
-        "Corpse"
-      ],
-      [
         "Bone",
         "Bone"
       ],
@@ -13213,10 +12979,6 @@
     ],
     "Sloth": [
       [
-        "Animal",
-        "Time"
-      ],
-      [
         "Tree",
         "Manatee"
       ]
@@ -13307,10 +13069,6 @@
       [
         "Campfire",
         "Water"
-      ],
-      [
-        "Campfire",
-        "Time"
       ],
       [
         "Campfire",
@@ -14819,16 +14577,8 @@
         "Moon"
       ],
       [
-        "Ocean",
-        "Time"
-      ],
-      [
         "Sea",
         "Moon"
-      ],
-      [
-        "Sea",
-        "Time"
       ]
     ],
     "Titanic": [
@@ -15117,10 +14867,6 @@
         "Wood"
       ],
       [
-        "Plant",
-        "Time"
-      ],
-      [
         "Nest",
         "Container"
       ]
@@ -15231,10 +14977,6 @@
       [
         "Day",
         "Night"
-      ],
-      [
-        "Day",
-        "Time"
       ]
     ],
     "Tyrannosaurus rex": [
@@ -15472,10 +15214,6 @@
       ]
     ],
     "Vinegar": [
-      [
-        "Wine",
-        "Time"
-      ],
       [
         "Wine",
         "Air"
