@@ -18,6 +18,105 @@ type OutputData struct {
 	Recipes  map[string]map[string][][]string `json:"recipes"`  // The recipe data
 }
 
+// SimpleOutputData is a simplified format for the recipe data
+type SimpleOutputData struct {
+	Elements []string   `json:"elements"` // List of all element names
+	Recipes  RecipesMap `json:"recipes"`  // Map of element name to its recipes
+}
+
+// RecipesMap maps element names to their recipes
+type RecipesMap map[string][][]string
+
+func ScrapeSimpleRecipes() (SimpleOutputData, error) {
+	// Initialize the result structure with starting elements
+	result := SimpleOutputData{
+		Elements: []string{"Air", "Earth", "Fire", "Water"},
+		Recipes:  make(RecipesMap),
+	}
+
+	res, err := http.Get(url)
+	if err != nil {
+		return SimpleOutputData{}, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return SimpleOutputData{}, fmt.Errorf("status code error: %d %s", res.StatusCode, res.Status)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err != nil {
+		return SimpleOutputData{}, err
+	}
+
+	// Keep track of unique elements
+	allElements := map[string]bool{
+		"Air":   true,
+		"Earth": true,
+		"Fire":  true,
+		"Water": true,
+	}
+
+	// Find all tables that follow a paragraph with our target text
+	doc.Find("p").Each(func(_ int, p *goquery.Selection) {
+		if strings.Contains(p.Text(), "These elements can be created by combining only") {
+			nextTable := p.NextFiltered("table")
+			if nextTable.Length() > 0 {
+				// Extract data from this table
+				rows := nextTable.Find("tr").Slice(1, nextTable.Find("tr").Length())
+				rows.Each(func(_ int, row *goquery.Selection) {
+					cols := row.Find("td")
+					if cols.Length() == 2 {
+						// Get element name
+						elementName, exists := cols.Eq(0).Find("a").Attr("title")
+						if !exists || elementName == "" {
+							elementName = strings.TrimSpace(cols.Eq(0).Find("a").Text())
+						}
+
+						if elementName == "" {
+							return
+						}
+
+						// Add element to our overall elements list if it's new
+						if !allElements[elementName] {
+							result.Elements = append(result.Elements, elementName)
+							allElements[elementName] = true
+						}
+
+						// Extract recipes for this element
+						elementRecipes := [][]string{}
+						cols.Eq(1).Find("li").Each(func(_ int, li *goquery.Selection) {
+							recipe := []string{}
+							li.Find("a").Each(func(_ int, a *goquery.Selection) {
+								text := a.Text()
+								if text == "" {
+									return
+								}
+
+								ingredient, exists := a.Attr("title")
+								if !exists || ingredient == "" {
+									ingredient = strings.TrimSpace(text)
+								}
+								if ingredient != "" {
+									recipe = append(recipe, ingredient)
+								}
+							})
+							if len(recipe) > 0 {
+								elementRecipes = append(elementRecipes, recipe)
+							}
+						})
+
+						if len(elementRecipes) > 0 {
+							result.Recipes[elementName] = elementRecipes
+						}
+					}
+				})
+			}
+		}
+	})
+
+	return result, nil
+}
+
 // ScrapeInitialRecipes scrapes recipes progressively from the Little Alchemy 2 wiki.
 func ScrapeInitialRecipes() (OutputData, error) {
 	// Initialize the result structure with starting elements
@@ -361,5 +460,20 @@ func SaveRecipesToJson(data OutputData, filename string) error {
 		return err
 	}
 
+	return nil
+}
+
+func SaveSimpleRecipesToJson(data SimpleOutputData, filename string) error {
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(filename, jsonData, 0644)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Successfully saved %d elements with recipes to %s\n", len(data.Elements), filename)
 	return nil
 }

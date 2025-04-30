@@ -14,13 +14,12 @@ type SearchRequest struct {
 }
 
 // SearchResponse adalah struktur output API
-// SearchResponse adalah struktur output API
 type SearchResponse struct {
-	ComponentRecipes map[string][][]string `json:"recipes"`
+	ComponentRecipes [][]string `json:"recipes"`
 }
 
-// Change the global variable definition
-var recipeData OutputData
+// Global variable for recipe data
+var recipeData SimpleOutputData
 
 // Update the loadRecipes function
 func loadRecipes(filename string) {
@@ -71,11 +70,11 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Searching for target: '%s'\n", req.Target)
 
-	// Now look up the component recipes for the requested element
+	// Look up the component recipes for the requested element
 	componentRecipes, ok := recipeData.Recipes[req.Target]
 	if !ok {
 		log.Printf("Target '%s' not found in recipes\n", req.Target)
-		componentRecipes = make(map[string][][]string)
+		componentRecipes = [][]string{} // Empty slice instead of map
 	} else {
 		log.Printf("Found recipes for target '%s'\n", req.Target)
 	}
@@ -96,13 +95,13 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	// First scrape the recipes
 	var err error
-	recipeData, err = ScrapeInitialRecipes()
+	recipeData, err = ScrapeSimpleRecipes()
 	if err != nil {
 		log.Fatalf("Error scraping recipes: %v", err)
 	}
 
 	// Save them to file
-	err = SaveRecipesToJson(recipeData, "initial_recipes.json")
+	err = SaveSimpleRecipesToJson(recipeData, "allRecipes.json")
 	if err != nil {
 		log.Fatalf("Error saving recipes to JSON: %v", err)
 	}
