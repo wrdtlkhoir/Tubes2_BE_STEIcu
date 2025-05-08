@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"sync"
-	"time"
 )
 
 /*  TO DO:
@@ -13,14 +12,14 @@ import (
 4. check number of visitted node
 */
 
-var dummy = map[string][][]string {
-	"Brick"		: {{"Mud", "Fire"}, {"Clay", "Stone"}},
-	"Mud"		: {{"Water", "Earth"}},
-	"Clay"		: {{"Mud", "Sand"}},
-	"Stone"		: {{"Lava", "Air"}, {"Earth", "Pressure"}},
-	"Sand" 		: {{"Stone", "Air"}},
-	"Lava" 		: {{"Earth", "Fire"}},
-	"Pressure" 	: {{"Air", "Air"}},
+var dummy = map[string][][]string{
+	"Brick":    {{"Mud", "Fire"}, {"Clay", "Stone"}},
+	"Mud":      {{"Water", "Earth"}},
+	"Clay":     {{"Mud", "Sand"}},
+	"Stone":    {{"Lava", "Air"}, {"Earth", "Pressure"}},
+	"Sand":     {{"Stone", "Air"}},
+	"Lava":     {{"Earth", "Fire"}},
+	"Pressure": {{"Air", "Air"}},
 }
 
 /*** SINGLE RECIPE (Shortest) ***/
@@ -45,8 +44,29 @@ func dfsOne(node *Node, cntNodes int, result []string) ([]string, int) {
 	result, cntNodes = dfsOne(node.combinations[0].ingredient2, cntNodes+1, result)
 	return result, cntNodes
 }
-
-
+// Fungsi untuk mengembalikan semua path dari root ke leaf pada shortest path
+func searchDFSShortestPaths(tree *Tree) [][]string {
+    var result [][]string
+    var dfs func(node *Node, path []string)
+    dfs = func(node *Node, path []string) {
+        if node == nil {
+            return
+        }
+        path = append(path, node.element)
+        if isLeaf(node) {
+            // Simpan path jika leaf
+            result = append(result, append([]string{}, path...))
+            return
+        }
+        // Hanya ambil kombinasi pertama (shortest path)
+        if len(node.combinations) > 0 {
+            dfs(node.combinations[0].ingredient1, path)
+            dfs(node.combinations[0].ingredient2, path)
+        }
+    }
+    dfs(tree.root, []string{})
+    return result
+}
 
 /*** MULTIPLE RECIPE ***/
 
@@ -57,7 +77,7 @@ type PathNode struct {
 
 var cache sync.Map // concurrent map buat store info (cache) accross goroutines
 
-func searchDFSMultiple(numRecipe int, tree *Tree) ([][]string, []int) {
+func SearchDFSMultiple(numRecipe int, tree *Tree) ([][]string, []int) {
 
 	fmt.Println("start dfs multiple")
 
@@ -73,10 +93,12 @@ func searchDFSMultiple(numRecipe int, tree *Tree) ([][]string, []int) {
 	for _, pathNode := range pathNodes {
 		path := ConvertPathNode(pathNode)
 		cntNode += len(path) - 1
-		paths = append(paths,path)
+		paths = append(paths, path)
 		countNodes = append(countNodes, cntNode)
-		cntRecipe ++;
-		if (cntRecipe == numRecipe) {break}
+		cntRecipe++
+		if cntRecipe == numRecipe {
+			break
+		}
 	}
 	return paths, countNodes
 }
@@ -91,17 +113,17 @@ func dfsMultiple(node *Node) []*PathNode {
 	if isBase(node.element) || isLeaf(node) {
 		return []*PathNode{{element: node.element}}
 	}
-	
+
 	// var for multithreading
-	var wg sync.WaitGroup // wait for all goroutines to finish
-	var mu sync.Mutex // mutex to protect concurrent writes to allPathNodes
+	var wg sync.WaitGroup        // wait for all goroutines to finish
+	var mu sync.Mutex            // mutex to protect concurrent writes to allPathNodes
 	var allPathNodes []*PathNode // buat store all recipe combinations
 
 	// each combination processed concurently
 	for _, recipe := range node.combinations {
 		wg.Add(1) // add 1 ke waitgroup sblm launch goroutines
-		// start goroutine for recipe 
-		go func (r Recipe) {
+		// start goroutine for recipe
+		go func(r Recipe) {
 			defer wg.Done() // ini buat ensure wg nya decrement pas udh selesai
 
 			// skip klo nil
@@ -116,12 +138,12 @@ func dfsMultiple(node *Node) []*PathNode {
 			// combine path nodes
 			for _, firstNode := range firstPathNodes {
 				for _, secondNode := range secondPathNodes {
-					newPathNode := &PathNode {
-						element: node.element,
+					newPathNode := &PathNode{
+						element:     node.element,
 						ingredients: []*PathNode{firstNode, secondNode},
 					}
-					
-					// safely append newPathNode 
+
+					// safely append newPathNode
 					mu.Lock()
 					allPathNodes = append(allPathNodes, newPathNode)
 					mu.Unlock()
@@ -129,17 +151,17 @@ func dfsMultiple(node *Node) []*PathNode {
 			}
 		}(recipe)
 	}
-	
-	wg.Wait() // waiting all goroutine to finish b4 continue
+
+	wg.Wait()                               // waiting all goroutine to finish b4 continue
 	cache.Store(node.element, allPathNodes) // store in cache
-		
+
 	return allPathNodes
 }
 
 func ConvertPathNode(pathNode *PathNode) []string {
 	var result []string
 	result = append(result, pathNode.element)
-	
+
 	// klo udh gaada ingredient, done
 	if len(pathNode.ingredients) == 0 {
 		return result
@@ -150,38 +172,27 @@ func ConvertPathNode(pathNode *PathNode) []string {
 	result = append(result, firstPath...)
 	secondPath := ConvertPathNode(pathNode.ingredients[1])
 	result = append(result, secondPath...)
-	
+
 	return result
 }
 
 
-func main() {
-	// LoadRecipes("main-recipes.json")
-	
-	target := "Brick"
 
-	tree := initTree(target, dummy)
-	printTree(tree)
+// func main() {
+//     // Dummy target
+//     target := "Brick"
 
-	/* Try Single Recipe */
-	start := time.Now()
-	recipes, numNodes := searchDFSOne(tree)
-	duration := time.Since(start)
+//     // Inisialisasi tree
+//     tree := initTree(target, dummy)
 
-	fmt.Println(recipes)
-	fmt.Printf("nodes visited: %d\n", numNodes)
-	ms := float64(duration.Microseconds()) / 1000.0
-	fmt.Printf("duration: %.5f ms\n", ms)
+//     // Konversi tree ke JSON
+//     treeJSON := convertToJSON(tree.root)
 
-	/* Try Multiple Recipe */
-	startMul := time.Now()
-	recipes2, numNodes2 := searchDFSMultiple(6, tree)
-	durationMul := time.Since(startMul)
+//     // Encode tree ke JSON dan cetak ke stdout
+//     jsonData, err := json.MarshalIndent(treeJSON, "", "    ")
+//     if err != nil {
+//         log.Fatalf("Failed to encode tree to JSON: %v", err)
+//     }
 
-	for i, recipe := range recipes2 {
-		fmt.Print(recipe)
-		fmt.Printf(" - %d\n", numNodes2[i])
-	}
-	msMul := float64(durationMul.Microseconds()) / 1000.0
-	fmt.Printf("duration: %.5f ms\n", msMul)
-}
+//     fmt.Println(string(jsonData))
+// }
