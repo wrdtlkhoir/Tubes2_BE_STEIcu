@@ -9,7 +9,7 @@ import (
 /*  TO DO:
 1. change dummy to recipeData.Recipes[target]
 2. handle element loops (if it end up to its own)
-3. shortest if one dfs -- harusnya udah, cek lagi aja.
+3. shortest if one dfs = ini harusnya disesuaiin pas scrapping
 4. check number of visitted node
 */
 
@@ -27,7 +27,7 @@ var dummy = map[string][][]string {
 
 func searchDFSOne(tree *Tree) ([]string, int) {
 	fmt.Println("start dfs single")
-	return dfsOne(tree.root, 1, []string{})
+	return dfsOne(tree.root, 0, []string{})
 }
 
 // helper
@@ -65,24 +65,24 @@ func searchDFSMultiple(numRecipe int, tree *Tree) ([][]string, []int) {
 	pathNodes := dfsMultiple(tree.root)
 
 	var paths [][]string // storing path per recipe
-	var countNode []int // storing visitted node per recipe
+	var countNodes []int // storing visitted node per recipe
 	cntNode := 0
 	cntRecipe := 0
 
 	// convert pathnode, count visitted nodes
 	for _, pathNode := range pathNodes {
 		path := ConvertPathNode(pathNode)
-		cntNode += len(path)
+		cntNode += len(path) - 1
 		paths = append(paths,path)
-		countNode = append(countNode, cntNode)
+		countNodes = append(countNodes, cntNode)
 		cntRecipe ++;
 		if (cntRecipe == numRecipe) {break}
 	}
-	return paths, countNode
+	return paths, countNodes
 }
 
 func dfsMultiple(node *Node) []*PathNode {
-	// cek apkh udah pernah visit elemen ini, klo udh langsung return pathnya
+	// cek apkh udah pernah visit elemen ini, klo udh langsung return pathnya (ini perlu dicek lagi sih boleh ga nya)
 	if cached, found := cache.Load(node.element); found {
 		return cached.([]*PathNode)
 	}
@@ -145,7 +145,7 @@ func ConvertPathNode(pathNode *PathNode) []string {
 		return result
 	}
 
-	// convert each ingredient
+	// convert each ingredient recipe, starting from ing0
 	firstPath := ConvertPathNode(pathNode.ingredients[0])
 	result = append(result, firstPath...)
 	secondPath := ConvertPathNode(pathNode.ingredients[1])
@@ -170,7 +170,8 @@ func main() {
 
 	fmt.Println(recipes)
 	fmt.Printf("nodes visited: %d\n", numNodes)
-	fmt.Printf("duration: %d ms\n", duration.Milliseconds())
+	ms := float64(duration.Microseconds()) / 1000.0
+	fmt.Printf("duration: %.5f ms\n", ms)
 
 	/* Try Multiple Recipe */
 	startMul := time.Now()
@@ -181,5 +182,6 @@ func main() {
 		fmt.Print(recipe)
 		fmt.Printf(" - %d\n", numNodes2[i])
 	}
-	fmt.Printf("duration: %d ms\n", durationMul.Milliseconds())
+	msMul := float64(durationMul.Microseconds()) / 1000.0
+	fmt.Printf("duration: %.5f ms\n", msMul)
 }
