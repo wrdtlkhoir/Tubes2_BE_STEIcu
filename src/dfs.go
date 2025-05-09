@@ -143,8 +143,6 @@ func dfsMultiple(node *Node) []*PathNode {
 				for _, secondNode := range secondPathNodes {
 					newPathNode := &PathNode{
 						element:     node.element,
-					newPathNode := &PathNode{
-						element:     node.element,
 						ingredients: []*PathNode{firstNode, secondNode},
 					}
 
@@ -160,10 +158,6 @@ func dfsMultiple(node *Node) []*PathNode {
 	wg.Wait()                               // waiting all goroutine to finish b4 continue
 	cache.Store(node.element, allPathNodes) // store in cache
 
-
-	wg.Wait() // wait for all goroutines to finish
-
-	cache.Store(node.element, allPathNodes)
 	return allPathNodes
 }
 
@@ -182,32 +176,9 @@ func ConvertPathNode(pathNode *PathNode) []string {
 	secondPath := ConvertPathNode(pathNode.ingredients[1])
 	result = append(result, secondPath...)
 
-func ConvertPathNodeToTree(pathNode *PathNode) map[string]interface{} {
-	if pathNode == nil {
-		return nil
-	}
-
-	result := map[string]interface{}{
-		"element": pathNode.element,
-	}
-
-	if len(pathNode.ingredients) > 0 {
-		ingredients := []map[string]interface{}{}
-
-		for _, ing := range pathNode.ingredients {
-			ingTree := ConvertPathNodeToTree(ing)
-			if ingTree != nil {
-				ingredients = append(ingredients, ingTree)
-			}
-		}
-
-		if len(ingredients) > 0 {
-			result["ingredients"] = ingredients
-		}
-	}
-
 	return result
 }
+
 
 
 // func main() {
@@ -228,23 +199,3 @@ func ConvertPathNodeToTree(pathNode *PathNode) map[string]interface{} {
 
 //     fmt.Println(string(jsonData))
 // }
-
-func main() {
-	LoadFiltered("filtered-recipe.json")
-
-	target := "Acid rain"
-	mainRecipe = filteredData.Recipes[target]
-
-	tree := initTreeDFS(target, mainRecipe)
-	printTree(tree)
-
-	result := searchDFSOne(tree) // ini return pointer to Node (which is tree hasil nya)
-	printTreeHelper(result, "", true)
-	fmt.Printf("Number of visited Node: %d\n", numOfVisitedNodeSD)
-
-	// result2 := searchDFSMultiple(5, tree)
-
-	// for _, path := range result2 {
-	// 	PrintRecipeTree(path, " ")
-	// }
-}

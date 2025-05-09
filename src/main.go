@@ -13,7 +13,7 @@ import (
 // SearchRequest adalah struktur input API
 type SearchRequest struct {
 	Target string `json:"target"`
-	Mode   string `json:"mode"` // tambahkan mode
+	Algorithm   string `json:"algorithm"` // tambahkan mode
 	SearchMode string `json:"searchMode"`
 }
 
@@ -21,6 +21,7 @@ type TreeNode struct {
     Name     string     `json:"name"`
     Children []*TreeNode `json:"children"`
 }
+
 
 // SearchResponse adalah struktur output API
 // SearchResponse adalah struktur output API
@@ -50,7 +51,26 @@ func loadRecipes(filename string) {
 		log.Printf("- %s\n", elem)
 	}
 }
-
+func convertNodeToPaths(node *Node) [][]string {
+    var paths [][]string
+    var dfs func(n *Node, path []string)
+    dfs = func(n *Node, path []string) {
+        if n == nil {
+            return
+        }
+        path = append(path, n.element)
+        if isLeaf(n) {
+            paths = append(paths, append([]string{}, path...))
+            return
+        }
+        for _, recipe := range n.combinations {
+            dfs(recipe.ingredient1, path)
+            dfs(recipe.ingredient2, path)
+        }
+    }
+    dfs(node, []string{})
+    return paths
+}
 // searchHandler stub untuk test API
 func searchHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Received search request")
@@ -86,11 +106,12 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
     tree := InitTree(req.Target, dummy)
     if req.SearchMode == "shortest" {
         // Ambil semua path pada shortest branch
-        paths = searchDFSShortestPaths(tree)
-    } else {
+        shortestPathNode := searchDFSOne(tree)
+        paths = convertNodeToPaths(shortestPathNode)
+    } //else {
         // Multiple path
-        paths, _ = SearchDFSMultiple(10, tree)
-    }
+        //paths, _ = searchDFSMultiple(10, tree)
+    //}
 
 	// Dummy komponen resep (bisa diisi sesuai kebutuhan)
     componentRecipes := make(map[string][][]string)
