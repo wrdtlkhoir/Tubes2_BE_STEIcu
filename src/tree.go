@@ -48,7 +48,7 @@ func buildTree(target string, element string, recipeData map[string][][]string, 
 }
 
 // called ini for init tree
-func initTree(target string, recipeData map[string][][]string) *Tree {
+func InitTree(target string, recipeData map[string][][]string) *Tree {
 	root := buildTree(target, target, recipeData, 0)
 	return &Tree{root: root}
 }

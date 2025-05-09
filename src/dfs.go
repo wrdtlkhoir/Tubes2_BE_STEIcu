@@ -12,6 +12,16 @@ import (
 4. check number of visitted node
 */
 
+var dummy = map[string][][]string{
+	"Brick":    {{"Mud", "Fire"}, {"Clay", "Stone"}},
+	"Mud":      {{"Water", "Earth"}},
+	"Clay":     {{"Mud", "Sand"}},
+	"Stone":    {{"Lava", "Air"}, {"Earth", "Pressure"}},
+	"Sand":     {{"Stone", "Air"}},
+	"Lava":     {{"Earth", "Fire"}},
+	"Pressure": {{"Air", "Air"}},
+}
+
 /*** SINGLE RECIPE (Shortest) ***/
 
 type Result struct {
@@ -133,8 +143,12 @@ func dfsMultiple(node *Node) []*PathNode {
 				for _, secondNode := range secondPathNodes {
 					newPathNode := &PathNode{
 						element:     node.element,
+					newPathNode := &PathNode{
+						element:     node.element,
 						ingredients: []*PathNode{firstNode, secondNode},
 					}
+
+					// safely append newPathNode
 					mu.Lock()
 					allPathNodes = append(allPathNodes, newPathNode)
 					mu.Unlock()
@@ -143,11 +157,30 @@ func dfsMultiple(node *Node) []*PathNode {
 		}(recipe)
 	}
 
+	wg.Wait()                               // waiting all goroutine to finish b4 continue
+	cache.Store(node.element, allPathNodes) // store in cache
+
+
 	wg.Wait() // wait for all goroutines to finish
 
 	cache.Store(node.element, allPathNodes)
 	return allPathNodes
 }
+
+func ConvertPathNode(pathNode *PathNode) []string {
+	var result []string
+	result = append(result, pathNode.element)
+
+	// klo udh gaada ingredient, done
+	if len(pathNode.ingredients) == 0 {
+		return result
+	}
+
+	// convert each ingredient recipe, starting from ing0
+	firstPath := ConvertPathNode(pathNode.ingredients[0])
+	result = append(result, firstPath...)
+	secondPath := ConvertPathNode(pathNode.ingredients[1])
+	result = append(result, secondPath...)
 
 func ConvertPathNodeToTree(pathNode *PathNode) map[string]interface{} {
 	if pathNode == nil {
@@ -175,6 +208,26 @@ func ConvertPathNodeToTree(pathNode *PathNode) map[string]interface{} {
 
 	return result
 }
+
+
+// func main() {
+//     // Dummy target
+//     target := "Brick"
+
+//     // Inisialisasi tree
+//     tree := initTree(target, dummy)
+
+//     // Konversi tree ke JSON
+//     treeJSON := convertToJSON(tree.root)
+
+//     // Encode tree ke JSON dan cetak ke stdout
+//     jsonData, err := json.MarshalIndent(treeJSON, "", "    ")
+//     if err != nil {
+//         log.Fatalf("Failed to encode tree to JSON: %v", err)
+//     }
+
+//     fmt.Println(string(jsonData))
+// }
 
 func main() {
 	LoadFiltered("filtered-recipe.json")
