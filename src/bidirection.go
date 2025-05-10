@@ -763,7 +763,7 @@ func mainWithShortestPathTree(recipeData map[string][][]string) {
 // Function to replace main() for testing
 func main() {
 	recipeData := map[string][][]string{
-		"Mud":      {{"Water", "Steam"}},
+		"Mud":      {{"Water", "Steam"}, {"Energy", "Water"}, {"Earth", "Earth"}},
 		"Steam":    {{"Water", "Fire"}, {"Lava", "Fire"}},
 		"Lava":     {{"Dust", "Fire"}, {"Water", "Fire"}},
 		"Dust":     {{"Steam", "Air"}},

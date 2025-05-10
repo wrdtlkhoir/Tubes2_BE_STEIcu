@@ -8,20 +8,21 @@ import (
 )
 
 type PathResult struct {
-	path  *Node  // Root of the path tree
-	score int    // Total depth/score of the path
-	desc  string // Description of the path
+	path             *Node
+	score            int
+	desc             string
+	actualTargetLeaf *Node
+	pathSignature    string // Add a unique signature to identify duplicate paths
 }
 
-// findMultipleBidirectionalPaths performs concurrent bidirectional searches
-// and returns the first n valid paths from root to base elements.
+// findMultipleBidirectionalPaths melakukan pencarian dua arah secara konkuren
+// dan mengembalikan n jalur valid pertama dari root ke elemen dasar.
 func findMultipleBidirectionalPaths(tree *Tree, numPaths int) []*Node {
 	if tree == nil || tree.root == nil {
 		fmt.Println("Tree is empty, cannot perform search.")
 		return nil
 	}
 
-	// Skip if the root itself is a cycle node
 	if tree.root.isCycleNode {
 		fmt.Println("Root is a cycle node, cannot perform search.")
 		return nil
@@ -29,7 +30,6 @@ func findMultipleBidirectionalPaths(tree *Tree, numPaths int) []*Node {
 
 	fmt.Printf("\n--- Starting Multi-Threaded Bidirectional Search for %d Paths ---\n", numPaths)
 
-	// Find base leaves for backward search
 	baseLeaves := findBaseLeaves(tree.root, []*Node{})
 	if len(baseLeaves) == 0 {
 		fmt.Println("No base leaves found in the tree, cannot perform backward search.")
@@ -45,24 +45,21 @@ func findMultipleBidirectionalPaths(tree *Tree, numPaths int) []*Node {
 	}
 	fmt.Println()
 
-	// Channel to collect results
 	resultChan := make(chan PathResult, numPaths)
-
-	// WaitGroup to track completion of all searches
 	var wg sync.WaitGroup
-
-	// Mutex to protect shared data structures
 	var resultsMutex sync.Mutex
 	var foundPaths []*Node
 	var numFoundPaths int
 
+	// Map to track path signatures we've already added
+	pathSignatures := make(map[string]bool)
+
 	// Start concurrent searches from each base leaf
-	for i, baseLeaf := range baseLeaves {
+	for i, singleBaseLeaf := range baseLeaves {
 		wg.Add(1)
-		go func(leafIndex int, leaf *Node) {
+		go func(leafIndex int, currentTargetLeaf *Node) {
 			defer wg.Done()
 
-			// Check if we already have enough paths before starting this search
 			resultsMutex.Lock()
 			if numFoundPaths >= numPaths {
 				resultsMutex.Unlock()
@@ -70,37 +67,44 @@ func findMultipleBidirectionalPaths(tree *Tree, numPaths int) []*Node {
 			}
 			resultsMutex.Unlock()
 
-			// Run bidirectional search for this base leaf
-			path, score, desc := bidirectionalSearchFromLeaf(tree.root, leaf)
+			path, score, desc, actualLeafFound := bidirectionalSearchFromLeaf(tree.root, []*Node{currentTargetLeaf})
 
 			if path != nil {
-				// Send result to channel
+				// Generate a unique signature for this path
+				pathSignature := generatePathSignature(path)
+
 				resultChan <- PathResult{
-					path:  path,
-					score: score,
-					desc:  desc,
+					path:             path,
+					score:            score,
+					desc:             desc,
+					actualTargetLeaf: actualLeafFound,
+					pathSignature:    pathSignature,
 				}
 			}
-		}(i, baseLeaf)
+		}(i, singleBaseLeaf)
 	}
 
-	// Goroutine to close result channel when all searches are done
 	go func() {
 		wg.Wait()
 		close(resultChan)
 	}()
 
-	// Collect results up to numPaths
 	for result := range resultChan {
 		resultsMutex.Lock()
-		if numFoundPaths < numPaths {
+
+		// Check if we've already found this path by checking its signature
+		if numFoundPaths < numPaths && !pathSignatures[result.pathSignature] {
+			// This is a new path, add it to our results
 			foundPaths = append(foundPaths, result.path)
 			numFoundPaths++
+
+			// Mark this path signature as found
+			pathSignatures[result.pathSignature] = true
+
 			fmt.Printf("Found path %d/%d: %s\n", numFoundPaths, numPaths, result.desc)
 		}
 		resultsMutex.Unlock()
 
-		// Break if we have enough paths
 		if numFoundPaths >= numPaths {
 			break
 		}
@@ -110,177 +114,236 @@ func findMultipleBidirectionalPaths(tree *Tree, numPaths int) []*Node {
 	return foundPaths
 }
 
-// bidirectionalSearchFromLeaf performs bidirectional search between root and a specific leaf
-func bidirectionalSearchFromLeaf(root *Node, baseLeaf *Node) (*Node, int, string) {
-	// Forward search (starting from the root)
-	q_f := list.New()
-	visited_f := make(map[*Node]*Node) // node instance -> parent node instance
+// generatePathSignature creates a unique string identifier for a path
+// This function traverses the entire path and creates a string representing the sequence of elements
+func generatePathSignature(node *Node) string {
+	if node == nil {
+		return ""
+	}
 
+	// Use a breadth-first traversal to collect all nodes in the path
+	var result []string
+	queue := list.New()
+	visited := make(map[*Node]bool)
+
+	queue.PushBack(node)
+	visited[node] = true
+
+	for queue.Len() > 0 {
+		current := queue.Front().Value.(*Node)
+		queue.Remove(queue.Front())
+
+		// Add this node's element to the signature
+		result = append(result, current.element)
+
+		// Add all combinations (children)
+		for _, recipe := range current.combinations {
+			if recipe.ingredient1 != nil && !visited[recipe.ingredient1] {
+				queue.PushBack(recipe.ingredient1)
+				visited[recipe.ingredient1] = true
+			}
+			if recipe.ingredient2 != nil && !visited[recipe.ingredient2] {
+				queue.PushBack(recipe.ingredient2)
+				visited[recipe.ingredient2] = true
+			}
+		}
+	}
+
+	return strings.Join(result, "|")
+}
+
+// bidirectionalSearchFromLeaf melakukan pencarian dua arah antara root dan sekumpulan targetBaseLeaves.
+// Fungsi ini menemukan jalur ke salah satu dari targetBaseLeaves tersebut.
+// Mengembalikan pohon jalur, skor, deskripsi, dan node leaf aktual tempat jalur ditemukan.
+func bidirectionalSearchFromLeaf(root *Node, targetBaseLeaves []*Node) (*Node, int, string, *Node) {
+	// Struct MeetingPoint didefinisikan secara lokal untuk mengakomodasi field tambahan
+	// tanpa mengubah definisi global jika ada.
+	type MeetingPoint struct {
+		node             *Node
+		forwardDepth     int
+		backwardDepth    int
+		actualTargetLeaf *Node // Leaf spesifik yang terhubung dengan meeting point ini
+	}
+
+	if root == nil {
+		return nil, -1, "", nil
+	}
+	// Periksa apakah targetBaseLeaves kosong atau semua elemennya tidak valid
+	if len(targetBaseLeaves) == 0 {
+		// fmt.Println("No target base leaves provided to bidirectionalSearchFromLeaf.") // Opsional
+		return nil, -1, "", nil
+	}
+
+	q_f := list.New()
+	visited_f := make(map[*Node]*Node)
 	q_f.PushBack(root)
 	visited_f[root] = nil
-
-	// Backward search (starting from the specified base leaf)
-	q_b := list.New()
-	visited_b := make(map[*Node]*Node) // node instance -> parent node instance
-
-	q_b.PushBack(baseLeaf)
-	visited_b[baseLeaf] = nil
-
-	// Track depth in both directions
 	forwardDepth := make(map[*Node]int)
-	backwardDepth := make(map[*Node]int)
-
 	forwardDepth[root] = 0
-	backwardDepth[baseLeaf] = 0
 
-	// Meeting points tracking
+	q_b := list.New()
+	visited_b := make(map[*Node]*Node)
+	backwardDepth := make(map[*Node]int)
+	baseLeafSource := make(map[*Node]*Node) // Melacak asal base leaf untuk jalur mundur
+
+	// Inisialisasi pencarian mundur dari semua targetBaseLeaves
+	validTargetsFound := false
+	for _, leaf := range targetBaseLeaves {
+		if leaf == nil || leaf.isCycleNode { // Lewati leaf yang tidak valid
+			continue
+		}
+		q_b.PushBack(leaf)
+		visited_b[leaf] = nil
+		backwardDepth[leaf] = 0
+		baseLeafSource[leaf] = leaf // Leaf ini adalah sumbernya sendiri
+		validTargetsFound = true
+	}
+
+	if !validTargetsFound { // Jika tidak ada target valid setelah filter
+		// fmt.Println("No valid target base leaves to start backward search from in bidirectionalSearchFromLeaf.") // Opsional
+		return nil, -1, "", nil
+	}
+
 	var meetingPoints []MeetingPoint
 
-	// Debug info
-	fmt.Printf("Starting bi-directional search: root=%s to leaf=%s\n",
-		root.element, baseLeaf.element)
+	// Komentari atau sesuaikan info debug karena baseLeaf sekarang adalah slice
+	// fmt.Printf("Starting bi-directional search: root=%s to one of target leaves\n", root.element)
 
-	// Perform Bi-BFS
 	for q_f.Len() > 0 && q_b.Len() > 0 {
-		// Process one level of forward search
+		// Proses satu level pencarian maju
 		currLevelSize_f := q_f.Len()
 		for i := 0; i < currLevelSize_f; i++ {
 			frontElement_f := q_f.Front()
 			curr_f_instance := frontElement_f.Value.(*Node)
 			q_f.Remove(frontElement_f)
 
-			// Skip cycle nodes in forward direction
 			if curr_f_instance.isCycleNode {
 				continue
 			}
 
-			// Check for collision with backward search
 			if backDepth, found := backwardDepth[curr_f_instance]; found {
-				meetingPoints = append(meetingPoints, MeetingPoint{
-					node:          curr_f_instance,
-					forwardDepth:  forwardDepth[curr_f_instance],
-					backwardDepth: backDepth,
-					baseLeaf:      baseLeaf,
-				})
-				// Found a meeting point, but continue searching
+				// Pastikan baseLeafSource[curr_f_instance] ada (seharusnya ada jika found)
+				if actualLeaf, ok := baseLeafSource[curr_f_instance]; ok {
+					meetingPoints = append(meetingPoints, MeetingPoint{
+						node:             curr_f_instance,
+						forwardDepth:     forwardDepth[curr_f_instance],
+						backwardDepth:    backDepth,
+						actualTargetLeaf: actualLeaf,
+					})
+				}
 			}
 
-			// Expand forward: Add ingredient *Node instances* from combinations
 			for _, recipe := range curr_f_instance.combinations {
 				children := []*Node{recipe.ingredient1, recipe.ingredient2}
-
 				for _, child_instance := range children {
 					if child_instance == nil || child_instance.isCycleNode {
 						continue
 					}
-
-					// Skip if already visited in forward direction
 					if _, v_found := visited_f[child_instance]; !v_found {
 						q_f.PushBack(child_instance)
 						visited_f[child_instance] = curr_f_instance
 						forwardDepth[child_instance] = forwardDepth[curr_f_instance] + 1
-
-						// Check for collision immediately
 						if backDepth, b_found := backwardDepth[child_instance]; b_found {
-							meetingPoints = append(meetingPoints, MeetingPoint{
-								node:          child_instance,
-								forwardDepth:  forwardDepth[child_instance],
-								backwardDepth: backDepth,
-								baseLeaf:      baseLeaf,
-							})
+							if actualLeaf, ok := baseLeafSource[child_instance]; ok {
+								meetingPoints = append(meetingPoints, MeetingPoint{
+									node:             child_instance,
+									forwardDepth:     forwardDepth[child_instance],
+									backwardDepth:    backDepth, // Menggunakan backDepth dari lookup, bukan b_found (boolean)
+									actualTargetLeaf: actualLeaf,
+								})
+							}
 						}
 					}
 				}
 			}
 		}
 
-		// Process one level of backward search
+		// Proses satu level pencarian mundur
 		currLevelSize_b := q_b.Len()
 		for i := 0; i < currLevelSize_b; i++ {
 			frontElement_b := q_b.Front()
 			curr_b_instance := frontElement_b.Value.(*Node)
 			q_b.Remove(frontElement_b)
 
-			// Skip cycle nodes in backward direction
 			if curr_b_instance.isCycleNode {
 				continue
 			}
 
-			// Check for collision with forward search
 			if fwdDepth, found := forwardDepth[curr_b_instance]; found {
-				meetingPoints = append(meetingPoints, MeetingPoint{
-					node:          curr_b_instance,
-					forwardDepth:  fwdDepth,
-					backwardDepth: backwardDepth[curr_b_instance],
-					baseLeaf:      baseLeaf,
-				})
-				// Found a meeting point, but continue searching
+				if actualLeaf, ok := baseLeafSource[curr_b_instance]; ok {
+					meetingPoints = append(meetingPoints, MeetingPoint{
+						node:             curr_b_instance,
+						forwardDepth:     fwdDepth,
+						backwardDepth:    backwardDepth[curr_b_instance],
+						actualTargetLeaf: actualLeaf,
+					})
+				}
 			}
 
-			// Expand backward: Move up to the parent *Node instance*
 			parent_instance := curr_b_instance.parent
-
 			if parent_instance == nil || parent_instance.isCycleNode {
 				continue
 			}
-
-			// Check if this parent node instance has been visited in backward search
 			if _, v_found := visited_b[parent_instance]; !v_found {
 				q_b.PushBack(parent_instance)
 				visited_b[parent_instance] = curr_b_instance
 				backwardDepth[parent_instance] = backwardDepth[curr_b_instance] + 1
-
-				// Check for collision immediately
-				if fwdDepth, f_found := forwardDepth[parent_instance]; f_found {
-					meetingPoints = append(meetingPoints, MeetingPoint{
-						node:          parent_instance,
-						forwardDepth:  fwdDepth,
-						backwardDepth: backwardDepth[parent_instance],
-						baseLeaf:      baseLeaf,
-					})
+				if sourceLeaf, ok := baseLeafSource[curr_b_instance]; ok { // Propagasi sumber
+					baseLeafSource[parent_instance] = sourceLeaf
+					if fwdDepth, f_found := forwardDepth[parent_instance]; f_found {
+						meetingPoints = append(meetingPoints, MeetingPoint{
+							node:             parent_instance,
+							forwardDepth:     fwdDepth,
+							backwardDepth:    backwardDepth[parent_instance],
+							actualTargetLeaf: sourceLeaf,
+						})
+					}
 				}
 			}
 		}
 
-		// If we found any meeting point, we can break early to get the first path
 		if len(meetingPoints) > 0 {
 			break
 		}
 	}
 
-	// If no meeting point found, return nil
 	if len(meetingPoints) == 0 {
-		fmt.Printf("No meeting point found between %s and %s\n",
-			root.element, baseLeaf.element)
-		return nil, -1, ""
+		// Komentari atau sesuaikan info debug karena baseLeaf sekarang adalah slice
+		// fmt.Printf("No meeting point found between %s and target leaves\n", root.element)
+		return nil, -1, "", nil
 	}
 
-	// Find the meeting point with the shortest total path
-	var bestMeetingPoint *MeetingPoint
+	var bestMeetingPointData MeetingPoint
+	foundBest := false
 	bestTotalDepth := -1
 
-	for i := range meetingPoints {
-		totalDepth := meetingPoints[i].forwardDepth + meetingPoints[i].backwardDepth
-
-		if bestTotalDepth == -1 || totalDepth < bestTotalDepth {
+	for _, mp := range meetingPoints {
+		totalDepth := mp.forwardDepth + mp.backwardDepth
+		if !foundBest || totalDepth < bestTotalDepth {
 			bestTotalDepth = totalDepth
-			bestMeetingPoint = &meetingPoints[i]
+			bestMeetingPointData = mp // mp adalah struct, bukan pointer, jadi ini adalah copy
+			foundBest = true
+		} else if totalDepth == bestTotalDepth {
+			if bestMeetingPointData.actualTargetLeaf != nil && mp.actualTargetLeaf != nil && // Pastikan tidak nil
+				mp.backwardDepth < bestMeetingPointData.backwardDepth {
+				bestMeetingPointData = mp
+			}
 		}
 	}
 
-	if bestMeetingPoint == nil {
-		return nil, -1, ""
+	if !foundBest || bestMeetingPointData.actualTargetLeaf == nil { // Periksa juga actualTargetLeaf
+		return nil, -1, "", nil
 	}
 
-	// Create a description of the path
 	pathDesc := fmt.Sprintf("Path to %s (total depth: %d)",
-		baseLeaf.element, bestTotalDepth)
+		bestMeetingPointData.actualTargetLeaf.element, bestTotalDepth)
 
-	// Construct the shortest path tree
+	// Akses ke recipeData tetap seperti di kode asli Anda, diasumsikan sebagai variabel global/package-level.
+	// Tidak ada perubahan di sini sesuai permintaan "jangan buat perubahan selain..."
 	recipesMapConverted := map[string][][]string(recipeData.Recipes)
-	resultTree := constructShortestPathTree(bestMeetingPoint.node, visited_f, visited_b, recipesMapConverted)
+	resultTree := constructShortestPathTree(bestMeetingPointData.node, visited_f, visited_b, recipesMapConverted)
 
-	return resultTree, bestTotalDepth, pathDesc
+	return resultTree, bestTotalDepth, pathDesc, bestMeetingPointData.actualTargetLeaf
 }
 
 // Replacement for the main function to demonstrate the multi-path implementation
