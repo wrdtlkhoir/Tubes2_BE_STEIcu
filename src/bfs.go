@@ -76,7 +76,7 @@ func bfsOne(element string) (*Node, int) {
 
 /*** MULTIPLE RECIPE BFS ***/
 func searchBFSMultiple(target string, maxPathsToReturn int) ([]*Tree, []int) {
-	fmt.Println("start dfs multiple")
+	fmt.Println("start bfs multiple")
 	targetSpecificRecipes, ok := recipeData.Recipes[target]
 	if !ok {
 		return []*Tree{}, []int{}

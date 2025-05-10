@@ -179,8 +179,42 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
                 NodesVisited:   totalNodes,
             }
         } else {
-            //     trees, node = searchBFSMultiple(req.Target, numOfRecipe)
-            // }
+            maxRecipes := req.MaxRecipes
+            if maxRecipes <= 0 {
+                maxRecipes = 1 // Default value
+            }
+            trees, nodeVisited = searchBFSMultiple(req.Target, maxRecipes)
+            var treeNodes []*TreeNode
+            for _, tree := range trees {
+                treeNode := convertToTreeNode(tree.root)
+                treeNodes = append(treeNodes, treeNode)
+                
+                // Debug: Print each tree structure
+                printTree(tree)
+            }
+            
+            executionTime := time.Since(startTime).Milliseconds()
+            
+            // Define a new response structure for multiple trees
+            type MultipleSearchResponse struct {
+                Trees          []*TreeNode `json:"trees"`
+                NodesVisited   int         `json:"nodesVisited"`
+                ExecutionTime  float64     `json:"executionTime"`
+            }
+            
+            // Calculate total nodes visited if multiple counts were returned
+            totalNodes := 0
+            if len(nodeVisited) > 0 {
+                for _, n := range nodeVisited {
+                    totalNodes += n
+                }
+            }
+            
+            resp = MultipleSearchResponse{
+                Trees:          treeNodes,
+                ExecutionTime:  float64(executionTime),
+                NodesVisited:   totalNodes,
+            }
         }
     }
     respData, err := json.Marshal(resp)
