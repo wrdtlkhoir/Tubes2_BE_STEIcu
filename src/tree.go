@@ -26,14 +26,38 @@ func isLeaf(node *Node) bool {
 	return len(node.combinations) == 0
 }
 
+func isNodeUsedAsIngredient(target string, parent *Node) bool {
+	if parent == nil {
+		return false
+	}
+	for _, recipe := range parent.combinations {
+		if recipe.ingredient1 != nil && recipe.ingredient1.element == target {
+			return true
+		}
+		if recipe.ingredient2 != nil && recipe.ingredient2.element == target {
+			return true
+		}
+		// recursively check children
+		if isNodeUsedAsIngredient(target, recipe.ingredient1) || isNodeUsedAsIngredient(target, recipe.ingredient2) {
+			return true
+		}
+	}
+	return false
+}
+
+
 // build tree dari data recipe
+var visited map[string]bool
+
 func buildTree(target string, element string, recipeData map[string][][]string, cntNode int) *Node {
-	if isBase(element) || (element == target && cntNode != 0) {
+	if isBase(element) || (element == target && cntNode != 0) || visited[element] {
 		return &Node{element: element}
 	}
-	node := &Node{element: element}
 
+	visited[element] = true
+	node := &Node{element: element}
 	recipes := recipeData[element]
+
 	for _, combination := range recipes {
 		ing1 := buildTree(target, combination[0], recipeData, cntNode + 1)
 		ing2 := buildTree(target, combination[1], recipeData, cntNode + 1)
@@ -49,6 +73,7 @@ func buildTree(target string, element string, recipeData map[string][][]string, 
 
 // called ini for init tree
 func InitTree(target string, recipeData map[string][][]string) *Tree {
+	visited = make(map[string]bool)
 	root := buildTree(target, target, recipeData, 0)
 	return &Tree{root: root}
 }

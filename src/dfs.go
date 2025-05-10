@@ -2,200 +2,253 @@ package main
 
 import (
 	"fmt"
-	"math"
+	// "math"
 	"sync"
 	// "time"
 )
 
-/*  TO DO:
-2. handle element loops (if it end up to its own)
-4. check number of visitted node
-*/
+/* TO DO */
+// 1. Handle loop back
 
-var dummy = map[string][][]string{
-	"Brick":    {{"Mud", "Fire"}, {"Clay", "Stone"}},
-	"Mud":      {{"Water", "Earth"}},
-	"Clay":     {{"Mud", "Sand"}},
-	"Stone":    {{"Lava", "Air"}, {"Earth", "Pressure"}},
-	"Sand":     {{"Stone", "Air"}},
-	"Lava":     {{"Earth", "Fire"}},
-	"Pressure": {{"Air", "Air"}},
-}
+/*** SINGLE RECIPE DFS ***/
 
-/*** SINGLE RECIPE (Shortest) ***/
+var memoSD map[string]*Node
+var mainData map[string][][]string
+var visitedDFS map[string]bool
 
-type Result struct {
-	node      *Node
-	stepCount int
-}
-
-var memoSD map[string]*Result
-var numOfVisitedNodeSD int
-
-func searchDFSOne(tree *Tree) *Node {
+func searchDFSOne(target string) (*Tree, int) {
 	fmt.Println("start dfs single")
-	memoSD = make(map[string]*Result)
-	numOfVisitedNodeSD = 0
-	result := dfsOne(tree.root, 0)
+	memoSD = make(map[string]*Node)
+	mainData = recipeData.Recipes[target]
+	visitedDFS = make(map[string]bool)
+	result, cntNode := dfsOne(target, -1)
 
-	return result.node
+	return &Tree{root: result}, cntNode
 }
 
-func dfsOne(node *Node, cntNode int) *Result {
-
-	if isBase(node.element) {
-		return &Result{node: &Node{element: node.element}, stepCount: 0}
+func dfsOne(element string, cntNode int) (*Node, int) {
+	cntNode++
+	visitedDFS[element] = true
+	if isBase(element) {
+		return &Node{element: element}, cntNode
 	}
-
-	if res, ok := memoSD[node.element]; ok {
-		return res
+	if res, ok := memoSD[element]; ok {
+		return res, cntNode
 	}
+	var res, left, right *Node
+	if mainData[element] != nil {
+		ingredients := mainData[element][0]
+		// fmt.Printf("from: %s = %s - %s\n", element, ingredients[0], ingredients[1])
+		left, cntNode = dfsOne(ingredients[0], cntNode)
+		right, cntNode = dfsOne(ingredients[1], cntNode)
 
-	minSteps := math.MaxInt32
-	var bestNode *Node
-
-	for _, combo := range node.combinations {
-		left := dfsOne(combo.ingredient1, cntNode+1)
-		right := dfsOne(combo.ingredient2, cntNode+1)
-
-		total := left.stepCount + right.stepCount + 1
-
-		if total < minSteps {
-			// build the current node with only this combination
-			bestNode = &Node{
-				element: node.element,
-				combinations: []Recipe{
-					{
-						ingredient1: left.node,
-						ingredient2: right.node,
-					},
+		res = &Node{
+			element: element,
+			combinations: []Recipe{
+				{
+					ingredient1: left,
+					ingredient2: right,
 				},
+			},
+		}
+	}
+	memoSD[element] = res
+	return res, cntNode
+}
+
+/*** MULTIPLE RECIPE DFS ***/
+
+var wg sync.WaitGroup
+var mu sync.Mutex
+var mainDataMul map[string][][]string
+
+func searchDFSMultiple(target string, numOfPath int) ([]*Tree, []int) {
+	fmt.Println("start dfs multiple")
+	targetSpecificRecipes := recipeData.Recipes[target]
+	rootNodes := dfsAll(target, numOfPath, targetSpecificRecipes)
+
+	var trees []*Tree
+	var pathElementCounts []int
+
+	for _, rootNode := range rootNodes {
+		trees = append(trees, &Tree{root: rootNode})
+		pathElementCounts = append(pathElementCounts, getPathElementCount(rootNode))
+	}
+	return trees, pathElementCounts
+}
+
+func dfsAll(element string, numOfPath int, currentRecipeMap map[string][][]string) []*Node {
+	var allFinalTargetTrees []*Node
+
+	targetCombs, exists := currentRecipeMap[element]
+	if !exists || len(targetCombs) == 0 {
+		return []*Node{{element: element}}
+	}
+
+	for _, pair := range targetCombs {
+		if len(pair) != 2 {
+			continue
+		}
+
+		var wg sync.WaitGroup
+		var leftIngredientOptions, rightIngredientOptions []*Node
+
+		wg.Add(2)
+		go func(ingName string) {
+			defer wg.Done()
+			visitedForPath := make(map[string]bool)
+			visitedForPath[element] = true
+			leftIngredientOptions = dfsSubTree(ingName, currentRecipeMap, visitedForPath)
+		}(pair[0])
+
+		go func(ingName string) {
+			defer wg.Done()
+			visitedForPath := make(map[string]bool)
+			visitedForPath[element] = true
+			rightIngredientOptions = dfsSubTree(ingName, currentRecipeMap, visitedForPath)
+		}(pair[1])
+		wg.Wait()
+
+		if len(leftIngredientOptions) == 0 {
+			leftIngredientOptions = []*Node{{element: pair[0]}}
+		}
+		if len(rightIngredientOptions) == 0 {
+			rightIngredientOptions = []*Node{{element: pair[1]}}
+		}
+
+		for _, lNode := range leftIngredientOptions {
+			for _, rNode := range rightIngredientOptions {
+				if numOfPath > 0 && len(allFinalTargetTrees) >= numOfPath {
+					goto endLoop // break out of all loops if enough paths are collected
+				}
+				finalTreeRoot := &Node{
+					element: element,
+					combinations: []Recipe{{
+						ingredient1: lNode,
+						ingredient2: rNode,
+					}},
+				}
+				allFinalTargetTrees = append(allFinalTargetTrees, finalTreeRoot)
 			}
-			minSteps = total
-			numOfVisitedNodeSD = cntNode
 		}
 	}
 
-	// save and return
-	res := &Result{node: bestNode, stepCount: minSteps}
-	memoSD[node.element] = res
-	return res
+endLoop:
+	if numOfPath > 0 && len(allFinalTargetTrees) > numOfPath {
+		return allFinalTargetTrees[:numOfPath]
+	}
+	return allFinalTargetTrees
 }
 
-/*** MULTIPLE RECIPE ***/
-
-type PathNode struct {
-	element     string      // element at this node
-	ingredients []*PathNode // ingredients to make this element (0 or 2)
-}
-
-var cache sync.Map    // concurrent map to store cached results across goroutines
-var visiting sync.Map // track currently processing elements to detect cycles
-
-// searchDFSMultiple finds multiple recipe paths for the root element
-func searchDFSMultiple(numRecipe int, tree *Tree) []*PathNode {
-	fmt.Println("start dfs multiple")
-
-	cache = sync.Map{}
-	visiting = sync.Map{}
-
-	// get all possible path nodes starting from root
-	pathNodes := dfsMultiple(tree.root)
-
-	return pathNodes
-}
-
-// dfsMultiple performs depth-first search to find all possible recipe paths
-func dfsMultiple(node *Node) []*PathNode {
-	if node == nil {
-		return []*PathNode{}
+func dfsSubTree(element string, currentRecipeMap map[string][][]string, visitedFromCaller map[string]bool) []*Node {
+	if visitedFromCaller[element] {
+		return []*Node{{element: element}}
 	}
 
-	if cached, found := cache.Load(node.element); found {
-		return cached.([]*PathNode)
+	visitedForCurrentPath := make(map[string]bool)
+	for k, v := range visitedFromCaller {
+		visitedForCurrentPath[k] = v
+	}
+	visitedForCurrentPath[element] = true
+
+	combs, exists := currentRecipeMap[element]
+	if !exists || len(combs) == 0 {
+		return []*Node{{element: element}}
 	}
 
-	if isBase(node.element) {
-		return []*PathNode{{element: node.element}}
-	}
+	var allPossibleLinearNodesForElement []*Node
 
-	visiting.Store(node.element, true)
-	defer visiting.Delete(node.element)
+	for _, pair := range combs {
+		if len(pair) != 2 {
+			continue
+		}
 
-	var wg sync.WaitGroup        // wait for all goroutines to finish
-	var mu sync.Mutex            // mutex to protect concurrent writes
-	var allPathNodes []*PathNode // store all recipe combinations
+		var wg sync.WaitGroup
+		var leftIngredientOptions, rightIngredientOptions []*Node
 
-	for _, recipe := range node.combinations {
-		wg.Add(1)
-		go func(r Recipe) {
+		wg.Add(2)
+		go func(ingName string) {
 			defer wg.Done()
+			leftIngredientOptions = dfsSubTree(ingName, currentRecipeMap, visitedForCurrentPath)
+		}(pair[0])
 
-			if r.ingredient1 == nil || r.ingredient2 == nil {
-				return
-			}
+		go func(ingName string) {
+			defer wg.Done()
+			rightIngredientOptions = dfsSubTree(ingName, currentRecipeMap, visitedForCurrentPath)
+		}(pair[1])
+		wg.Wait()
 
-			firstPathNodes := dfsMultiple(r.ingredient1)
-			secondPathNodes := dfsMultiple(r.ingredient2)
+		if len(leftIngredientOptions) == 0 {
+			leftIngredientOptions = []*Node{{element: pair[0]}}
+		}
+		if len(rightIngredientOptions) == 0 {
+			rightIngredientOptions = []*Node{{element: pair[1]}}
+		}
 
-			// combine paths from both ingredients
-			for _, firstNode := range firstPathNodes {
-				for _, secondNode := range secondPathNodes {
-					newPathNode := &PathNode{
-						element:     node.element,
-						ingredients: []*PathNode{firstNode, secondNode},
-					}
-
-					// safely append newPathNode
-					mu.Lock()
-					allPathNodes = append(allPathNodes, newPathNode)
-					mu.Unlock()
+		for _, lNode := range leftIngredientOptions {
+			for _, rNode := range rightIngredientOptions {
+				newNode := &Node{
+					element: element,
+					combinations: []Recipe{{
+						ingredient1: lNode,
+						ingredient2: rNode,
+					}},
 				}
+				allPossibleLinearNodesForElement = append(allPossibleLinearNodesForElement, newNode)
 			}
-		}(recipe)
+		}
 	}
-
-	wg.Wait()                               // waiting all goroutine to finish b4 continue
-	cache.Store(node.element, allPathNodes) // store in cache
-
-	return allPathNodes
+	return allPossibleLinearNodesForElement
 }
 
-func ConvertPathNode(pathNode *PathNode) []string {
-	var result []string
-	result = append(result, pathNode.element)
-
-	// klo udh gaada ingredient, done
-	if len(pathNode.ingredients) == 0 {
-		return result
+func countUniqueElementsInPath(node *Node, elements map[string]bool) {
+	if node == nil {
+		return
 	}
-
-	// convert each ingredient recipe, starting from ing0
-	firstPath := ConvertPathNode(pathNode.ingredients[0])
-	result = append(result, firstPath...)
-	secondPath := ConvertPathNode(pathNode.ingredients[1])
-	result = append(result, secondPath...)
-
-	return result
+	elements[node.element] = true
+	if len(node.combinations) > 0 {
+		recipe := node.combinations[0]
+		countUniqueElementsInPath(recipe.ingredient1, elements)
+		countUniqueElementsInPath(recipe.ingredient2, elements)
+	}
 }
 
-
+func getPathElementCount(rootNode *Node) int {
+	uniqueElements := make(map[string]bool)
+	countUniqueElementsInPath(rootNode, uniqueElements)
+	return len(uniqueElements)
+}
 
 // func main() {
-//     // Dummy target
-//     target := "Brick"
 
-//     // Inisialisasi tree
-//     tree := initTree(target, dummy)
+// 	loadRecipes("filtered-recipe.json")
+// 	target := "Stone"
+// 	numOfRecipe := 5
 
-//     // Konversi tree ke JSON
-//     treeJSON := convertToJSON(tree.root)
+// 	// ini buat debug result aja
+// 	tree := InitTree(target, recipeData.Recipes[target])
+// 	printTree(tree)
 
-//     // Encode tree ke JSON dan cetak ke stdout
-//     jsonData, err := json.MarshalIndent(treeJSON, "", "    ")
-//     if err != nil {
-//         log.Fatalf("Failed to encode tree to JSON: %v", err)
-//     }
+// 	// Try Single Recipe
+// 	result, nodes := searchDFSOne(target)
+// 	printTree(result)
+// 	fmt.Printf("Number of visited nodes: %d\n", nodes)
 
-//     fmt.Println(string(jsonData))
+// 	// Try multiple Recipe
+// 	result2, nodes2 := searchDFSMultiple(target, numOfRecipe)
+// 	for _, recipe := range result2 {
+// 		printTree(recipe)
+// 	}
+// 	fmt.Printf("Number of visited nodes: %d\n", nodes2)
+
+// 	// Konversi tree ke JSON
+// 	// treeJSON := convertToJSON(tree.root)
+
+// 	// Encode tree ke JSON dan cetak ke stdout
+// 	// jsonData, err := json.MarshalIndent(treeJSON, "", "    ")
+// 	// if err != nil {
+// 	//     log.Fatalf("Failed to encode tree to JSON: %v", err)
+// 	// }
+
+// 	// fmt.Println(string(jsonData))
 // }
