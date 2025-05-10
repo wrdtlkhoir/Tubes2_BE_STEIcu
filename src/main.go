@@ -8,16 +8,6 @@ import (
     "time"
 )
 
-// var dummy = map[string][][]string{
-// 	"Brick":    {{"Mud", "Fire"}, {"Clay", "Stone"}},
-// 	"Mud":      {{"Water", "Earth"}},
-// 	"Clay":     {{"Mud", "Sand"}},
-// 	"Stone":    {{"Lava", "Air"}, {"Earth", "Pressure"}},
-// 	"Sand":     {{"Stone", "Air"}},
-// 	"Lava":     {{"Earth", "Fire"}},
-// 	"Pressure": {{"Air", "Air"}},
-// }
-
 // SearchRequest adalah struktur input API
 type SearchRequest struct {
 	Target      string `json:"target"`
@@ -32,9 +22,9 @@ type TreeNode struct {
 }
 
 type SearchResponse struct {
-	Path           [][]string `json:"path"`
+	Tree           *TreeNode `json:"tree"`
     NodesVisited     int        `json:"nodesVisited"`
-    ExecutionTime    int64      `json:"executionTime"`
+    ExecutionTime    float64      `json:"executionTime"`
 }
 
 // Change the global variable definition
@@ -57,25 +47,29 @@ func loadRecipes(filename string) {
 	// 	log.Printf("- %s\n", elem)
 	// }
 }
-func convertNodeToPaths(node *Node) [][]string {
-    var paths [][]string
-    var dfs func(n *Node, path []string)
-    dfs = func(n *Node, path []string) {
-        if n == nil {
-            return
-        }
-        path = append(path, n.element)
-        if isLeaf(n) {
-            paths = append(paths, append([]string{}, path...))
-            return
-        }
-        for _, recipe := range n.combinations {
-            dfs(recipe.ingredient1, path)
-            dfs(recipe.ingredient2, path)
-        }
-    }
-    dfs(node, []string{})
-    return paths
+func convertToTreeNode(n *Node) *TreeNode {
+	if n == nil {
+		return nil
+	}
+
+	node := &TreeNode{
+		Name:     n.element,
+		Children: []*TreeNode{},
+	}
+
+	for _, recipe := range n.combinations {
+		child1 := convertToTreeNode(recipe.ingredient1)
+		child2 := convertToTreeNode(recipe.ingredient2)
+
+		if child1 != nil {
+			node.Children = append(node.Children, child1)
+		}
+		if child2 != nil {
+			node.Children = append(node.Children, child2)
+		}
+	}
+
+	return node
 }
 
 func searchHandler(w http.ResponseWriter, r *http.Request) {
@@ -108,7 +102,6 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 
     startTime := time.Now()
 
-	var path [][]string
     var node int
     var tree *Tree
     // var trees []*Tree
@@ -123,7 +116,6 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
         } else {
             tree, node = searchBFSOne(req.Target)
         }
-        path = convertNodeToPaths(tree.root)
     } else { // multiple
         // if req.Algorithm == "DFS" {
         //     trees, nodes = searchDFSMultiple(req.Target, numOfRecipe)
@@ -132,12 +124,12 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
         // }
         // // nambahin convert masing2 tree ke path [][]string
     }
-
+    treeNode := convertToTreeNode(tree.root)
     executionTime := time.Since(startTime).Milliseconds()
 
     resp := SearchResponse{
-        Path: path,
-        ExecutionTime:    executionTime,
+        Tree: treeNode,
+        ExecutionTime:    float64(executionTime),
         NodesVisited:     node,
     }
     respData, err := json.Marshal(resp)
@@ -146,6 +138,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
         log.Printf("Failed to marshal response: %v\n", err)
         return
     }
+    printTree(tree) // Debug: Print the tree structure to the console
 
     log.Printf("Sending response: %s\n", string(respData))
     w.WriteHeader(http.StatusOK)
