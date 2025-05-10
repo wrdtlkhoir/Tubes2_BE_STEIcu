@@ -22,7 +22,7 @@ type TreeNode struct {
 }
 
 type SearchResponse struct {
-	Tree           *TreeNode `json:"tree"`
+	Trees           []*TreeNode `json:"tree"`
     NodesVisited     int        `json:"nodesVisited"`
     ExecutionTime    float64      `json:"executionTime"`
 }
@@ -98,12 +98,12 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Searching for target: '%s'\n", req.Target)
+	log.Printf("Searching for target: '%s' using algorithm: %s, mode: %s, maxRecipes: %d\n", 
+        req.Target, req.Algorithm, req.SearchMode, req.MaxRecipes)
 
     startTime := time.Now()
 
-    var node int
-    var tree *Tree
+    var resp interface{}
     // var trees []*Tree
     // var nodes []int
 
@@ -111,26 +111,77 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
     // var numOfRecipe int
 
     if req.SearchMode == "single" {
+        var node int
+        var tree *Tree
         if (req.Algorithm == "DFS") {
             tree, node = searchDFSOne(req.Target)
+            treeNode := convertToTreeNode(tree.root)
+            executionTime := time.Since(startTime).Milliseconds()
+            resp = SearchResponse{
+                Trees:          []*TreeNode{treeNode},
+                ExecutionTime:  float64(executionTime),
+                NodesVisited:   node,
+            }
+            
+            // Debug: Print the tree structure
+            printTree(tree)
         } else {
             tree, node = searchBFSOne(req.Target)
+            treeNode := convertToTreeNode(tree.root)
+            executionTime := time.Since(startTime).Milliseconds()
+            resp = SearchResponse{
+                Trees:          []*TreeNode{treeNode},
+                ExecutionTime:  float64(executionTime),
+                NodesVisited:   node,
+            }
+            
+            // Debug: Print the tree structure
+            printTree(tree)
         }
     } else { // multiple
-        // if req.Algorithm == "DFS" {
-        //     trees, nodes = searchDFSMultiple(req.Target, numOfRecipe)
-        // } else {
-        //     trees, nodes = searchBFSMultiple(req.Target, numOfRecipe)
-        // }
-        // // nambahin convert masing2 tree ke path [][]string
-    }
-    treeNode := convertToTreeNode(tree.root)
-    executionTime := time.Since(startTime).Milliseconds()
-
-    resp := SearchResponse{
-        Tree: treeNode,
-        ExecutionTime:    float64(executionTime),
-        NodesVisited:     node,
+        var trees []*Tree
+        var nodeVisited []int
+        if req.Algorithm == "DFS" {
+            maxRecipes := req.MaxRecipes
+            if maxRecipes <= 0 {
+                maxRecipes = 1 // Default value
+            }
+            trees, nodeVisited = searchDFSMultiple(req.Target, maxRecipes)
+            var treeNodes []*TreeNode
+            for _, tree := range trees {
+                treeNode := convertToTreeNode(tree.root)
+                treeNodes = append(treeNodes, treeNode)
+                
+                // Debug: Print each tree structure
+                printTree(tree)
+            }
+            
+            executionTime := time.Since(startTime).Milliseconds()
+            
+            // Define a new response structure for multiple trees
+            type MultipleSearchResponse struct {
+                Trees          []*TreeNode `json:"trees"`
+                NodesVisited   int         `json:"nodesVisited"`
+                ExecutionTime  float64     `json:"executionTime"`
+            }
+            
+            // Calculate total nodes visited if multiple counts were returned
+            totalNodes := 0
+            if len(nodeVisited) > 0 {
+                for _, n := range nodeVisited {
+                    totalNodes += n
+                }
+            }
+            
+            resp = MultipleSearchResponse{
+                Trees:          treeNodes,
+                ExecutionTime:  float64(executionTime),
+                NodesVisited:   totalNodes,
+            }
+        } else {
+            //     trees, node = searchBFSMultiple(req.Target, numOfRecipe)
+            // }
+        }
     }
     respData, err := json.Marshal(resp)
     if err != nil {
@@ -138,7 +189,6 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
         log.Printf("Failed to marshal response: %v\n", err)
         return
     }
-    printTree(tree) // Debug: Print the tree structure to the console
 
     log.Printf("Sending response: %s\n", string(respData))
     w.WriteHeader(http.StatusOK)
