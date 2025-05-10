@@ -6,6 +6,13 @@ import (
 	"strings"
 )
 
+type MeetingPoint struct {
+	node          *Node
+	forwardDepth  int
+	backwardDepth int
+	baseLeaf      *Node // Track which base leaf this path leads to
+}
+
 // Helper to find all base leaf nodes in the tree structure.
 // This function traverses the *built tree* to find search starting points.
 func findBaseLeaves(node *Node, baseLeaves []*Node) []*Node {
@@ -31,15 +38,6 @@ func findBaseLeaves(node *Node, baseLeaves []*Node) []*Node {
 	return baseLeaves
 }
 
-// PathInfo stores the path and its length information
-type PathInfo struct {
-	path   []*Node // The path of nodes
-	length int     // Path length (number of steps)
-}
-
-// bidirectionalSearchTree performs bidirectional search on the tree structure
-// and returns a tree branch representing the shortest path from root to base elements.
-// The search completely avoids paths with isCycleNode marked nodes.
 func bidirectionalSearchTree(tree *Tree) *Node {
 	if tree == nil || tree.root == nil {
 		fmt.Println("Tree is empty, cannot perform search.")
@@ -78,12 +76,6 @@ func bidirectionalSearchTree(tree *Tree) *Node {
 	}
 
 	// Meeting point tracking
-	type MeetingPoint struct {
-		node          *Node
-		forwardDepth  int
-		backwardDepth int
-		baseLeaf      *Node // Track which base leaf this path leads to
-	}
 
 	var meetingPoints []MeetingPoint
 
@@ -771,7 +763,7 @@ func mainWithShortestPathTree(recipeData map[string][][]string) {
 // Function to replace main() for testing
 func main() {
 	recipeData := map[string][][]string{
-		"Mud":      {{"Water", "Steam"}, {"Energy", "Water"}, {"Earth", "Earth"}},
+		"Mud":      {{"Water", "Steam"}},
 		"Steam":    {{"Water", "Fire"}, {"Lava", "Fire"}},
 		"Lava":     {{"Dust", "Fire"}, {"Water", "Fire"}},
 		"Dust":     {{"Steam", "Air"}},
@@ -784,5 +776,8 @@ func main() {
 		"Obsidian": {{"Lava", "Water"}},
 	}
 
-	mainWithShortestPathTree(recipeData)
+	// mainWithShortestPathTree(recipeData)
+
+	numPaths := 3
+	mainWithMultiplePaths(recipeData, numPaths)
 }

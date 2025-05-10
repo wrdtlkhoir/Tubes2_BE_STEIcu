@@ -34,19 +34,6 @@ func isBase(element string) bool {
 	return baseElements[element]
 }
 
-// Helper to sort ingredient pairs consistently for map keys
-func sortIngredients(ing1, ing2 string) [2]string {
-	if ing1 > ing2 {
-		return [2]string{ing2, ing1}
-	}
-	return [2]string{ing1, ing2}
-}
-
-// check if a node is a true leaf (no combinations)
-func isLeaf(node *Node) bool {
-	return len(node.combinations) == 0
-}
-
 // isAncestor checks if targetElement is an element of any ancestor node
 // in the tree structure above the starting 'node'.
 func isAncestor(node *Node, targetElement string) bool {
