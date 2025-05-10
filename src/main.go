@@ -21,14 +21,15 @@ type TreeNode struct {
     Children []*TreeNode `json:"children"`
 }
 
+
 type SearchResponse struct {
 	Trees           []*TreeNode `json:"tree"`
     NodesVisited     int        `json:"nodesVisited"`
     ExecutionTime    float64      `json:"executionTime"`
 }
 
-// Change the global variable definition
-var recipeData OutputData
+// Global variable for recipe data
+var recipeData SimpleOutputData
 
 func loadRecipes(filename string) {
 	data, err := os.ReadFile(filename)
@@ -101,7 +102,16 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Searching for target: '%s' using algorithm: %s, mode: %s, maxRecipes: %d\n", 
         req.Target, req.Algorithm, req.SearchMode, req.MaxRecipes)
 
+
     startTime := time.Now()
+	// Look up the component recipes for the requested element
+	componentRecipes, ok := recipeData.Recipes[req.Target]
+	if !ok {
+		log.Printf("Target '%s' not found in recipes\n", req.Target)
+		componentRecipes = [][]string{} // Empty slice instead of map
+	} else {
+		log.Printf("Found recipes for target '%s'\n", req.Target)
+	}
 
     var resp interface{}
     // var trees []*Tree
@@ -242,6 +252,7 @@ func main() {
     if err != nil {
         log.Fatalf("Error saving recipes to JSON: %v", err)
     }
+
 
     http.HandleFunc("/api/search", searchHandler)
     // http.HandleFunc("/api/tree", treeHandler) // Tambahkan endpoint baru
