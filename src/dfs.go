@@ -222,8 +222,8 @@ func getPathElementCount(rootNode *Node) int {
 // func main() {
 
 // 	loadRecipes("filtered-recipe.json")
-// 	target := "Stone"
-// 	numOfRecipe := 5
+// 	target := "Clay"
+// 	numOfRecipe := 3
 
 // 	// ini buat debug result aja
 // 	tree := InitTree(target, recipeData.Recipes[target])

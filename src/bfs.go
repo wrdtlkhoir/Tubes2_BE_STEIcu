@@ -210,36 +210,36 @@ func bfsAll(targetElement string, maxPathsToReturn int, currentRecipeMap map[str
 	return allFinalTargetTrees
 }
 
-func main() {
+// func main() {
 
-	loadRecipes("filtered-recipe.json")
-	target := "Brick"
-	numOfRecipe := 2
+// 	loadRecipes("filtered-recipe.json")
+// 	target := "Brick"
+// 	numOfRecipe := 2
 
-	// ini buat debug result aja
-	tree := InitTree(target, recipeData.Recipes[target])
-	printTree(tree)
+// 	// ini buat debug result aja
+// 	tree := InitTree(target, recipeData.Recipes[target])
+// 	printTree(tree)
 
-	// Try Single Recipe
-	result, nodes := searchBFSOne(target)
-	printTree(result)
-	fmt.Printf("Number of visited nodes: %d\n", nodes)
+// 	// Try Single Recipe
+// 	result, nodes := searchBFSOne(target)
+// 	printTree(result)
+// 	fmt.Printf("Number of visited nodes: %d\n", nodes)
 
-	// Try multiple Recipe
-	result2, nodes2 := searchBFSMultiple(target, numOfRecipe)
-	for _, recipe := range result2 {
-		printTree(recipe)
-	}
-	fmt.Printf("Number of visited nodes: %d\n", nodes2)
+// 	// Try multiple Recipe
+// 	result2, nodes2 := searchBFSMultiple(target, numOfRecipe)
+// 	for _, recipe := range result2 {
+// 		printTree(recipe)
+// 	}
+// 	fmt.Printf("Number of visited nodes: %d\n", nodes2)
 
-	// Konversi tree ke JSON
-	// treeJSON := convertToJSON(tree.root)
+// 	// Konversi tree ke JSON
+// 	// treeJSON := convertToJSON(tree.root)
 
-	// Encode tree ke JSON dan cetak ke stdout
-	// jsonData, err := json.MarshalIndent(treeJSON, "", "    ")
-	// if err != nil {
-	//     log.Fatalf("Failed to encode tree to JSON: %v", err)
-	// }
+// 	// Encode tree ke JSON dan cetak ke stdout
+// 	// jsonData, err := json.MarshalIndent(treeJSON, "", "    ")
+// 	// if err != nil {
+// 	//     log.Fatalf("Failed to encode tree to JSON: %v", err)
+// 	// }
 
-	// fmt.Println(string(jsonData))
-}
+// 	// fmt.Println(string(jsonData))
+// }
