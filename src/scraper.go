@@ -481,6 +481,7 @@ func collectRecursiveRecipes(
 
 // ScrapeRecipes scrapes recipe data filtering by already available elements
 // ScrapeRecipes scrapes recipe data with consistent sub-recipes
+// ScrapeRecipes scrapes recipe data with recursive consistent sub-recipes
 func ScrapeRecipes() (OutputData, error) {
 	// Initialize the result structure with starting elements
 	result := OutputData{
@@ -635,24 +636,9 @@ func ScrapeRecipes() (OutputData, error) {
 						// Add the valid recipes for this element
 						result.Recipes[element][element] = validRecipes
 
-						// For each non-base ingredient used in valid recipes,
-						// get its recipes from result.Recipes (ensuring consistency)
-						for _, recipe := range validRecipes {
-							for _, ingredient := range recipe {
-								// Skip base elements and the element itself
-								if baseElements[ingredient] || ingredient == element {
-									continue
-								}
-
-								// Look up the ingredient's own recipes in result.Recipes
-								if resultIngredientRecipes, exists := result.Recipes[ingredient]; exists {
-									if ingredientOwnRecipes, exists := resultIngredientRecipes[ingredient]; exists {
-										// Use the already established recipes for consistency
-										result.Recipes[element][ingredient] = ingredientOwnRecipes
-									}
-								}
-							}
-						}
+						// Now recursively add recipes for all non-base ingredients
+						addedIngredients := make(map[string]bool) // Avoid duplicates
+						addRecipesRecursively(element, validRecipes, result, baseElements, addedIngredients)
 
 						fmt.Printf("Added element %s with %d valid recipes\n", element, len(validRecipes))
 					}
@@ -667,23 +653,50 @@ func ScrapeRecipes() (OutputData, error) {
 	return result, nil
 }
 
-func main() {
-	// Use your new scraping function here
-	data, err := ScrapeRecipes()
-	if err != nil {
-		fmt.Printf("Error scraping recipes: %v\n", err)
-		return
-	}
+// addRecipesRecursively adds recipes for all non-base ingredients recursively
+func addRecipesRecursively(targetElement string, recipes [][]string, result OutputData,
+	baseElements map[string]bool, addedIngredients map[string]bool) {
+	for _, recipe := range recipes {
+		for _, ingredient := range recipe {
+			// Skip base elements and already processed ingredients for this target
+			if baseElements[ingredient] || addedIngredients[ingredient] {
+				continue
+			}
 
-	// Save to recipes.json
-	err = SaveRecipesToJson(data, "recipes.json")
-	if err != nil {
-		fmt.Printf("Error saving recipes: %v\n", err)
-		return
-	}
+			// Mark this ingredient as processed for this target
+			addedIngredients[ingredient] = true
 
-	fmt.Println("Recipe data saved to recipes.json successfully!")
+			// Find this ingredient's recipes in the result
+			if ingredientRecipesMap, exists := result.Recipes[ingredient]; exists {
+				if ingredientRecipes, exists := ingredientRecipesMap[ingredient]; exists {
+					// Add this ingredient's recipes to the target element
+					result.Recipes[targetElement][ingredient] = ingredientRecipes
+
+					// Recursively add this ingredient's ingredients' recipes
+					addRecipesRecursively(targetElement, ingredientRecipes, result, baseElements, addedIngredients)
+				}
+			}
+		}
+	}
 }
+
+// func main() {
+// 	// Use your new scraping function here
+// 	data, err := ScrapeRecipes()
+// 	if err != nil {
+// 		fmt.Printf("Error scraping recipes: %v\n", err)
+// 		return
+// 	}
+
+// 	// Save to recipes.json
+// 	err = SaveRecipesToJson(data, "recipes.json")
+// 	if err != nil {
+// 		fmt.Printf("Error saving recipes: %v\n", err)
+// 		return
+// 	}
+
+// 	fmt.Println("Recipe data saved to recipes.json successfully!")
+// }
 
 // SaveRecipesToJson saves the recipes to a JSON file.
 func SaveRecipesToJson(data OutputData, filename string) error {

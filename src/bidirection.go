@@ -4,7 +4,9 @@ import (
 	"container/list"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"strings"
 )
 
 // (Ensure isBase function is defined elsewhere)
@@ -21,10 +23,6 @@ func allLeavesAreBase(node *Node, visited map[*Node]bool) bool {
 	visited[node] = true
 
 	if len(node.combinations) == 0 { // This is a leaf in the *constructed path tree*
-		if !isBase(node.element) {
-			// Optional: log the specific non-base leaf for debugging
-			// fmt.Printf("  -> Validation Fail: Path leaf '%s' is not a base element.\n", node.element)
-		}
 		return isBase(node.element)
 	}
 
@@ -39,12 +37,12 @@ func allLeavesAreBase(node *Node, visited map[*Node]bool) bool {
 	return true
 }
 
-type MeetingPoint struct {
-	node          *Node
-	forwardDepth  int
-	backwardDepth int
-	baseLeaf      *Node // Track which base leaf this path leads to
-}
+// type MeetingPoint struct {
+// 	node          *Node
+// 	forwardDepth  int
+// 	backwardDepth int
+// 	baseLeaf      *Node // Track which base leaf this path leads to
+// }
 
 // Helper to find all base leaf nodes in the tree structure.
 // This function traverses the *built tree* to find search starting points.
@@ -737,59 +735,59 @@ func LoadOutputDataFromJson(filename string) (OutputData, error) {
 	return data, nil
 }
 
-// func main() {
-// 	var allRecipeData OutputData
+func main() {
+	var allRecipeData OutputData
 
-// 	log.Println("Loading recipe data from initial_recipes.json...")
-// 	loadedData, err := LoadOutputDataFromJson("initial_recipes.json") // Ensure this file path is correct
-// 	if err != nil {
-// 		log.Fatalf("Error loading recipe data from JSON: %v", err)
-// 		return
-// 	}
-// 	allRecipeData = loadedData
-// 	log.Println("Recipe data loaded successfully.")
+	log.Println("Loading recipe data from recipes.json...")
+	loadedData, err := LoadOutputDataFromJson("recipes.json") // Ensure this file path is correct
+	if err != nil {
+		log.Fatalf("Error loading recipe data from JSON: %v", err)
+		return
+	}
+	allRecipeData = loadedData
+	log.Println("Recipe data loaded successfully.")
 
-// 	if allRecipeData.Recipes == nil {
-// 		log.Fatalln("Recipe data is empty after loading. Cannot proceed.")
-// 		return
-// 	}
+	if allRecipeData.Recipes == nil {
+		log.Fatalln("Recipe data is empty after loading. Cannot proceed.")
+		return
+	}
 
-// 	targetItemName := "Acid rain" // Or your desired target
+	targetItemName := "Science" // Or your desired target
 
-// 	// recipesForTargetItem will be of type map[string][][]string
-// 	// This represents the categorized recipes for the targetItemName
-// 	recipesForTargetItem, found := allRecipeData.Recipes[targetItemName]
-// 	if !found {
-// 		log.Printf("No recipes found for target item '%s' in allRecipeData.Recipes\n", targetItemName)
-// 		available := []string{}
-// 		for k := range allRecipeData.Recipes {
-// 			available = append(available, k)
-// 		}
-// 		log.Printf("Available items in loaded data: %v", available)
-// 		return
-// 	}
+	// recipesForTargetItem will be of type map[string][][]string
+	// This represents the categorized recipes for the targetItemName
+	recipesForTargetItem, found := allRecipeData.Recipes[targetItemName]
+	if !found {
+		log.Printf("No recipes found for target item '%s' in allRecipeData.Recipes\n", targetItemName)
+		available := []string{}
+		for k := range allRecipeData.Recipes {
+			available = append(available, k)
+		}
+		log.Printf("Available items in loaded data: %v", available)
+		return
+	}
 
-// 	// Assuming buildTreeBFS uses recipesForTargetItem to build the initial, possibly pruned, tree.
-// 	// buildTreeBFS needs to be robust in how it handles these recipes.
-// 	fullTree := buildTreeBFS(targetItemName, recipesForTargetItem)
-// 	if fullTree == nil || fullTree.root == nil {
-// 		log.Fatalf("Failed to build the full tree for %s. It might be a base element or have no recipes.", targetItemName)
-// 	}
+	// Assuming buildTreeBFS uses recipesForTargetItem to build the initial, possibly pruned, tree.
+	// buildTreeBFS needs to be robust in how it handles these recipes.
+	fullTree := buildTreeBFS(targetItemName, recipesForTargetItem)
+	if fullTree == nil || fullTree.root == nil {
+		log.Fatalf("Failed to build the full tree for %s. It might be a base element or have no recipes.", targetItemName)
+	}
 
-// 	fmt.Println("\nFull Recipe Derivation Tree (output depends on your print function):")
-// 	// print(fullTree) // Your placeholder for printing the full tree
+	fmt.Println("\nFull Recipe Derivation Tree (output depends on your print function):")
+	// print(fullTree) // Your placeholder for printing the full tree
 
-// 	// Perform bidirectional search, passing the specific recipes for the target item
-// 	fmt.Printf("\nStarting bidirectional search for %s (seeking first constructible path)...\n", targetItemName)
-// 	// The recipesForTargetItem (map[string][][]string) is passed for path construction
-// 	firstPathTree := bidirectionalSearchTree(fullTree, recipesForTargetItem)
+	// Perform bidirectional search, passing the specific recipes for the target item
+	fmt.Printf("\nStarting bidirectional search for %s (seeking first constructible path)...\n", targetItemName)
+	// The recipesForTargetItem (map[string][][]string) is passed for path construction
+	firstPathTree := bidirectionalSearchTree(fullTree, recipesForTargetItem)
 
-// 	if firstPathTree != nil {
-// 		fmt.Println("\n--- First Constructible Non-Cyclic Path Tree Found ---")
-// 		printShortestPathTree(firstPathTree, "", true) // Using your existing print function for the result
-// 	} else {
-// 		fmt.Printf("\nCould not find any constructible non-cyclic path for '%s' via bidirectional search.\n", targetItemName)
-// 	}
+	if firstPathTree != nil {
+		fmt.Println("\n--- First Constructible Non-Cyclic Path Tree Found ---")
+		printShortestPathTree(firstPathTree, "", true) // Using your existing print function for the result
+	} else {
+		fmt.Printf("\nCould not find any constructible non-cyclic path for '%s' via bidirectional search.\n", targetItemName)
+	}
 
-// 	fmt.Println("\n" + strings.Repeat("=", 40))
-// }
+	fmt.Println("\n" + strings.Repeat("=", 40))
+}
