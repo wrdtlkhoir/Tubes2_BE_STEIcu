@@ -2,9 +2,42 @@ package main
 
 import (
 	"container/list"
+	"encoding/json"
 	"fmt"
-	"strings"
+	"os"
 )
+
+// (Ensure isBase function is defined elsewhere)
+// var baseElements = map[string]bool{"Earth": true, "Air": true, "Fire": true, "Water": true}
+// func isBase(element string) bool { return baseElements[element] }
+
+func allLeavesAreBase(node *Node, visited map[*Node]bool) bool {
+	if node == nil {
+		return true // A nil ingredient in a recipe doesn't invalidate the path by this rule
+	}
+	if visited[node] {
+		return true // Already validated this node or currently validating it up the recursion stack
+	}
+	visited[node] = true
+
+	if len(node.combinations) == 0 { // This is a leaf in the *constructed path tree*
+		if !isBase(node.element) {
+			// Optional: log the specific non-base leaf for debugging
+			// fmt.Printf("  -> Validation Fail: Path leaf '%s' is not a base element.\n", node.element)
+		}
+		return isBase(node.element)
+	}
+
+	for _, recipe := range node.combinations {
+		if recipe.ingredient1 != nil && !allLeavesAreBase(recipe.ingredient1, visited) {
+			return false
+		}
+		if recipe.ingredient2 != nil && !allLeavesAreBase(recipe.ingredient2, visited) {
+			return false
+		}
+	}
+	return true
+}
 
 type MeetingPoint struct {
 	node          *Node
@@ -38,228 +71,157 @@ func findBaseLeaves(node *Node, baseLeaves []*Node) []*Node {
 	return baseLeaves
 }
 
-func bidirectionalSearchTree(tree *Tree) *Node {
+func bidirectionalSearchTree(tree *Tree, recipesForItem map[string][][]string) *Node { // Added recipesForItem
 	if tree == nil || tree.root == nil {
 		fmt.Println("Tree is empty, cannot perform search.")
 		return nil
 	}
-
-	// Skip if the root itself is a cycle node
 	if tree.root.isCycleNode {
 		fmt.Println("Root is a cycle node, cannot perform search.")
 		return nil
 	}
 
-	// Forward search (starting from the root *instance* of the tree)
 	q_f := list.New()
-	// Visited map uses *Node instances* as keys for efficient lookup.
-	visited_f := make(map[*Node]*Node) // node instance -> parent node instance in search path
-
-	root_f := tree.root // Start search from the root Node *instance* of the tree
+	visited_f := make(map[*Node]*Node) // Store parent in path: child -> parent
+	root_f := tree.root
 	q_f.PushBack(root_f)
-	visited_f[root_f] = nil // The root of the search path has no parent in the search path
+	visited_f[root_f] = nil
 
-	// Backward search (starting from all base leaf *Node instances* in the tree)
-	baseLeaves := findBaseLeaves(tree.root, []*Node{}) // Find the base leaf instances in the tree
+	baseLeaves := findBaseLeaves(tree.root, []*Node{})
 	q_b := list.New()
-	// Visited map uses *Node instances* as keys
-	visited_b := make(map[*Node]*Node) // node instance -> parent node instance in search path
+	visited_b := make(map[*Node]*Node) // Store parent in path: child -> parent (for backward path reconstruction, this means it's child's child)
 
 	if len(baseLeaves) == 0 {
-		fmt.Println("No base leaves found in the tree, cannot perform backward search on tree.")
-		return nil // Indicate no bidirectional path found
+		fmt.Println("No base leaves found, cannot perform backward search.")
+		return nil
 	}
-
 	for _, baseLeaf := range baseLeaves {
-		q_b.PushBack(baseLeaf)    // Start backward search from each base leaf instance
-		visited_b[baseLeaf] = nil // The starting nodes of the backward search path have no parent in that search path
+		q_b.PushBack(baseLeaf)
+		visited_b[baseLeaf] = nil
 	}
 
-	// Meeting point tracking
+	fmt.Println("\n--- Starting Bidirectional Search (seeking first constructible non-cyclic path) ---")
+	// ... (your logging for queue starts) ...
 
-	var meetingPoints []MeetingPoint
-
-	fmt.Println("\n--- Starting Bidirectional Search on Tree Structure ---")
-	fmt.Println("Forward queue starts with root instance:", root_f.element)
-	fmt.Printf("Backward queue starts with %d base leaf instances: ", len(baseLeaves))
-	// Print base leaf elements for debugging
-	for i, leaf := range baseLeaves {
-		fmt.Print(leaf.element)
-		if i < len(baseLeaves)-1 {
-			fmt.Print(", ")
-		}
-	}
-	fmt.Println()
-
-	// Track depth in both directions
+	// Depth maps are still useful for understanding, though not for picking the "shortest" anymore
 	forwardDepth := make(map[*Node]int)
 	backwardDepth := make(map[*Node]int)
-
-	// Track which base leaf a node came from in backward search
-	baseLeafSource := make(map[*Node]*Node)
+	baseLeafSource := make(map[*Node]*Node) // Still useful for context if needed
 
 	forwardDepth[root_f] = 0
 	for _, leaf := range baseLeaves {
 		backwardDepth[leaf] = 0
-		baseLeafSource[leaf] = leaf // Each base leaf is its own source
+		baseLeafSource[leaf] = leaf
 	}
 
 	// Perform Bi-BFS
 	for q_f.Len() > 0 && q_b.Len() > 0 {
-		// Step forward (expand children via combinations)
+		// Step forward
 		if q_f.Len() > 0 {
 			frontElement_f := q_f.Front()
-			curr_f_instance := frontElement_f.Value.(*Node) // Get a node instance from the tree
+			curr_f_instance := frontElement_f.Value.(*Node)
 			q_f.Remove(frontElement_f)
 
-			fmt.Printf("F: Processing node %s\n", curr_f_instance.element)
-
-			// Skip cycle nodes in the forward direction
+			fmt.Printf("F: Processing node %s (Depth: %d)\n", curr_f_instance.element, forwardDepth[curr_f_instance])
 			if curr_f_instance.isCycleNode {
 				fmt.Printf("F: Skipping cycle node %s\n", curr_f_instance.element)
 				continue
 			}
 
-			// Check for collision (comparing *Node instances* - memory addresses)
-			if backDepth, found := backwardDepth[curr_f_instance]; found {
-				fmt.Printf("F: Meeting point found at %s (forward depth: %d, backward depth: %d)\n",
-					curr_f_instance.element, forwardDepth[curr_f_instance], backDepth)
-				meetingPoints = append(meetingPoints, MeetingPoint{
-					node:          curr_f_instance,
-					forwardDepth:  forwardDepth[curr_f_instance],
-					backwardDepth: backDepth,
-					baseLeaf:      baseLeafSource[curr_f_instance],
-				})
-				// Continue searching for potentially better paths
+			// Check for collision
+			if _, found := backwardDepth[curr_f_instance]; found {
+				fmt.Printf("F: Meeting point candidate at %s. Attempting path construction...\n", curr_f_instance.element)
+				// Attempt to construct the tree immediately using recipesForItem
+				pathTree := constructShortestPathTree(curr_f_instance, visited_f, visited_b, recipesForItem)
+				if pathTree != nil {
+					fmt.Printf("F: Successfully constructed a path tree via meeting point %s. Returning.\n", curr_f_instance.element)
+					return pathTree // Return the first successfully constructed path
+				} else {
+					fmt.Printf("F: Path construction failed for meeting point %s.\n", curr_f_instance.element)
+				}
 			}
 
-			// Expand forward: Add ingredient *Node instances* from combinations
 			for _, recipe := range curr_f_instance.combinations {
 				children := []*Node{recipe.ingredient1, recipe.ingredient2}
-
 				for _, child_instance := range children {
 					if child_instance == nil || child_instance.isCycleNode {
-						continue // Skip nil nodes and cycle nodes
+						continue
 					}
-
-					// Skip if already visited in forward direction
 					if _, v_found := visited_f[child_instance]; !v_found {
 						fmt.Printf("F: Enqueueing child %s from %s\n", child_instance.element, curr_f_instance.element)
 						q_f.PushBack(child_instance)
-						visited_f[child_instance] = curr_f_instance // Record parent *instance* in search path
+						visited_f[child_instance] = curr_f_instance
 						forwardDepth[child_instance] = forwardDepth[curr_f_instance] + 1
 
-						// Check for collision immediately
-						if backDepth, b_found := backwardDepth[child_instance]; b_found {
-							fmt.Printf("F: Immediate meeting point at %s (forward: %d, backward: %d)\n",
-								child_instance.element, forwardDepth[child_instance], backDepth)
-							meetingPoints = append(meetingPoints, MeetingPoint{
-								node:          child_instance,
-								forwardDepth:  forwardDepth[child_instance],
-								backwardDepth: backDepth,
-								baseLeaf:      baseLeafSource[child_instance],
-							})
+						// Check for immediate collision after adding child
+						if _, b_found := backwardDepth[child_instance]; b_found {
+							fmt.Printf("F: Immediate meeting point candidate at enqueued child %s. Attempting path construction...\n", child_instance.element)
+							pathTree := constructShortestPathTree(child_instance, visited_f, visited_b, recipesForItem)
+							if pathTree != nil {
+								fmt.Printf("F: Successfully constructed a path tree via immediate meeting at %s. Returning.\n", child_instance.element)
+								return pathTree
+							} else {
+								fmt.Printf("F: Path construction failed for immediate meeting point %s.\n", child_instance.element)
+							}
 						}
 					}
 				}
 			}
 		}
 
-		// Step backward (expand parent)
+		// Step backward
 		if q_b.Len() > 0 {
 			frontElement_b := q_b.Front()
-			curr_b_instance := frontElement_b.Value.(*Node) // Get a node instance from the tree
+			curr_b_instance := frontElement_b.Value.(*Node)
 			q_b.Remove(frontElement_b)
 
-			fmt.Printf("B: Processing node %s\n", curr_b_instance.element)
-
-			// Skip cycle nodes in the backward direction
+			fmt.Printf("B: Processing node %s (Depth: %d)\n", curr_b_instance.element, backwardDepth[curr_b_instance])
 			if curr_b_instance.isCycleNode {
 				fmt.Printf("B: Skipping cycle node %s\n", curr_b_instance.element)
 				continue
 			}
 
-			// Check for collision (comparing *Node instances*)
-			if fwdDepth, found := forwardDepth[curr_b_instance]; found {
-				fmt.Printf("B: Meeting point found at %s (forward: %d, backward: %d)\n",
-					curr_b_instance.element, fwdDepth, backwardDepth[curr_b_instance])
-				meetingPoints = append(meetingPoints, MeetingPoint{
-					node:          curr_b_instance,
-					forwardDepth:  fwdDepth,
-					backwardDepth: backwardDepth[curr_b_instance],
-					baseLeaf:      baseLeafSource[curr_b_instance],
-				})
-				// Continue searching for potentially better paths
+			// Check for collision
+			if _, found := forwardDepth[curr_b_instance]; found {
+				fmt.Printf("B: Meeting point candidate at %s. Attempting path construction...\n", curr_b_instance.element)
+				pathTree := constructShortestPathTree(curr_b_instance, visited_f, visited_b, recipesForItem)
+				if pathTree != nil {
+					fmt.Printf("B: Successfully constructed a path tree via meeting point %s. Returning.\n", curr_b_instance.element)
+					return pathTree
+				} else {
+					fmt.Printf("B: Path construction failed for meeting point %s.\n", curr_b_instance.element)
+				}
 			}
 
-			// Expand backward: Move up to the parent *Node instance* in the tree structure
-			parent_instance := curr_b_instance.parent // Use the parent link from the tree structure itself
-
+			parent_instance := curr_b_instance.parent
 			if parent_instance == nil || parent_instance.isCycleNode {
-				continue // Skip nil parents and cycle nodes
+				continue
 			}
-
-			// Check if this specific parent node instance has been visited in the backward search
 			if _, v_found := visited_b[parent_instance]; !v_found {
 				fmt.Printf("B: Enqueueing parent %s from %s\n", parent_instance.element, curr_b_instance.element)
 				q_b.PushBack(parent_instance)
-				visited_b[parent_instance] = curr_b_instance // Record child *instance* in search path
+				visited_b[parent_instance] = curr_b_instance
+				currentBaseLeaf := baseLeafSource[curr_b_instance] // Get base leaf from child
+				baseLeafSource[parent_instance] = currentBaseLeaf  // Propagate to parent
 				backwardDepth[parent_instance] = backwardDepth[curr_b_instance] + 1
 
-				// Propagate the base leaf source
-				baseLeafSource[parent_instance] = baseLeafSource[curr_b_instance]
-
-				// Check for collision immediately
-				if fwdDepth, f_found := forwardDepth[parent_instance]; f_found {
-					fmt.Printf("B: Immediate meeting point at %s (forward: %d, backward: %d)\n",
-						parent_instance.element, fwdDepth, backwardDepth[parent_instance])
-					meetingPoints = append(meetingPoints, MeetingPoint{
-						node:          parent_instance,
-						forwardDepth:  fwdDepth,
-						backwardDepth: backwardDepth[parent_instance],
-						baseLeaf:      baseLeafSource[parent_instance],
-					})
+				// Check for immediate collision after adding parent
+				if _, f_found := forwardDepth[parent_instance]; f_found {
+					fmt.Printf("B: Immediate meeting point candidate at enqueued parent %s. Attempting path construction...\n", parent_instance.element)
+					pathTree := constructShortestPathTree(parent_instance, visited_f, visited_b, recipesForItem)
+					if pathTree != nil {
+						fmt.Printf("B: Successfully constructed a path tree via immediate meeting at %s. Returning.\n", parent_instance.element)
+						return pathTree
+					} else {
+						fmt.Printf("B: Path construction failed for immediate meeting point %s.\n", parent_instance.element)
+					}
 				}
 			}
 		}
 	}
 
-	fmt.Println("--- Bidirectional Search on Tree Ended ---")
-	fmt.Printf("Found %d meeting points\n", len(meetingPoints))
-
-	// Find the meeting point with the shortest total path
-	var bestMeetingPoint *MeetingPoint
-	bestTotalDepth := -1
-
-	for i := range meetingPoints {
-		totalDepth := meetingPoints[i].forwardDepth + meetingPoints[i].backwardDepth
-		fmt.Printf("Meeting point %d: %s (total depth: %d, leads to: %s)\n",
-			i+1, meetingPoints[i].node.element, totalDepth,
-			meetingPoints[i].baseLeaf.element)
-
-		if bestTotalDepth == -1 || totalDepth < bestTotalDepth {
-			bestTotalDepth = totalDepth
-			bestMeetingPoint = &meetingPoints[i]
-		}
-	}
-
-	if bestMeetingPoint == nil {
-		fmt.Println("No valid meeting point found (all paths might contain cycle nodes)")
-		return nil
-	}
-
-	fmt.Printf("Best meeting point: %s (forward depth: %d, backward depth: %d, total: %d)\n",
-		bestMeetingPoint.node.element,
-		bestMeetingPoint.forwardDepth,
-		bestMeetingPoint.backwardDepth,
-		bestTotalDepth)
-
-	if bestMeetingPoint.baseLeaf != nil {
-		fmt.Printf("This path leads to base element: %s\n", bestMeetingPoint.baseLeaf.element)
-	}
-	recipesMapConverted := map[string][][]string(recipeData.Recipes)
-	// Create a subtree representing the shortest path
-	return constructShortestPathTree(bestMeetingPoint.node, visited_f, visited_b, recipesMapConverted)
+	fmt.Println("--- Bidirectional Search Ended: No constructible non-cyclic path found ---")
+	return nil // No path tree could be constructed from any meeting point
 }
 
 // Constructs a new tree representing the shortest path from root to base elements
@@ -737,47 +699,97 @@ func printShortestPathTree(node *Node, prefix string, isLast bool) {
 }
 
 // Replacement for the main function to demonstrate the new implementation
-func mainWithShortestPathTree(recipeData map[string][][]string) {
-	targetElement := "Swamp"
-	// Build tree from data
-	fullTree := buildTreeBFS(targetElement, recipeData)
+// func mainWithShortestPathTree(recipeData map[string][][]string) {
+// 	targetElement := "Swamp"
+// 	// Build tree from data
+// 	fullTree := buildTreeBFS(targetElement, recipeData)
 
-	// Print the full tree
-	fmt.Println("\nFull Recipe Derivation Tree:")
-	printTree(fullTree)
+// 	// Print the full tree
+// 	fmt.Println("\nFull Recipe Derivation Tree:")
+// 	printTree(fullTree)
 
-	// Perform bidirectional search and get the shortest path tree
-	shortestPathTree := bidirectionalSearchTree(fullTree)
+// 	// Perform bidirectional search and get the shortest path tree
+// 	shortestPathTree := bidirectionalSearchTree(fullTree)
 
-	if shortestPathTree != nil {
-		fmt.Println("\nShortest Path Tree:")
-		printShortestPathTree(shortestPathTree, "", true)
-	} else {
-		fmt.Println("Could not find a valid path without cycles.")
+// 	if shortestPathTree != nil {
+// 		fmt.Println("\nShortest Path Tree:")
+// 		printShortestPathTree(shortestPathTree, "", true)
+// 	} else {
+// 		fmt.Println("Could not find a valid path without cycles.")
+// 	}
+
+// 	fmt.Println("\n" + strings.Repeat("=", 40)) // Separator
+
+// }
+
+// Helper function to load OutputData from JSON
+func LoadOutputDataFromJson(filename string) (OutputData, error) {
+	var data OutputData
+	jsonData, err := os.ReadFile(filename) // For Go 1.16+
+	// For Go 1.15 and earlier, use: jsonData, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return data, err
 	}
-
-	fmt.Println("\n" + strings.Repeat("=", 40)) // Separator
-
+	err = json.Unmarshal(jsonData, &data)
+	if err != nil {
+		return data, err
+	}
+	return data, nil
 }
 
-// Function to replace main() for testing
-func main() {
-	recipeData := map[string][][]string{
-		"Mud":      {{"Water", "Steam"}, {"Energy", "Water"}, {"Earth", "Earth"}},
-		"Steam":    {{"Water", "Fire"}, {"Lava", "Fire"}},
-		"Lava":     {{"Dust", "Fire"}, {"Water", "Fire"}},
-		"Dust":     {{"Steam", "Air"}},
-		"Energy":   {{"Air", "Fire"}},
-		"Cloud":    {{"Air", "Water"}},
-		"Swamp":    {{"Mud", "Water"}}, // Reordered to prioritize the correct/shorter path
-		"Glass":    {{"Sand", "Fire"}, {"Fire", "Fire"}},
-		"Sand":     {{"Stone", "Air"}},
-		"Stone":    {{"Lava", "Water"}},
-		"Obsidian": {{"Lava", "Water"}},
-	}
+// func main() {
+// 	var allRecipeData OutputData
 
-	// mainWithShortestPathTree(recipeData)
+// 	log.Println("Loading recipe data from initial_recipes.json...")
+// 	loadedData, err := LoadOutputDataFromJson("initial_recipes.json") // Ensure this file path is correct
+// 	if err != nil {
+// 		log.Fatalf("Error loading recipe data from JSON: %v", err)
+// 		return
+// 	}
+// 	allRecipeData = loadedData
+// 	log.Println("Recipe data loaded successfully.")
 
-	numPaths := 3
-	mainWithMultiplePaths(recipeData, numPaths)
-}
+// 	if allRecipeData.Recipes == nil {
+// 		log.Fatalln("Recipe data is empty after loading. Cannot proceed.")
+// 		return
+// 	}
+
+// 	targetItemName := "Acid rain" // Or your desired target
+
+// 	// recipesForTargetItem will be of type map[string][][]string
+// 	// This represents the categorized recipes for the targetItemName
+// 	recipesForTargetItem, found := allRecipeData.Recipes[targetItemName]
+// 	if !found {
+// 		log.Printf("No recipes found for target item '%s' in allRecipeData.Recipes\n", targetItemName)
+// 		available := []string{}
+// 		for k := range allRecipeData.Recipes {
+// 			available = append(available, k)
+// 		}
+// 		log.Printf("Available items in loaded data: %v", available)
+// 		return
+// 	}
+
+// 	// Assuming buildTreeBFS uses recipesForTargetItem to build the initial, possibly pruned, tree.
+// 	// buildTreeBFS needs to be robust in how it handles these recipes.
+// 	fullTree := buildTreeBFS(targetItemName, recipesForTargetItem)
+// 	if fullTree == nil || fullTree.root == nil {
+// 		log.Fatalf("Failed to build the full tree for %s. It might be a base element or have no recipes.", targetItemName)
+// 	}
+
+// 	fmt.Println("\nFull Recipe Derivation Tree (output depends on your print function):")
+// 	// print(fullTree) // Your placeholder for printing the full tree
+
+// 	// Perform bidirectional search, passing the specific recipes for the target item
+// 	fmt.Printf("\nStarting bidirectional search for %s (seeking first constructible path)...\n", targetItemName)
+// 	// The recipesForTargetItem (map[string][][]string) is passed for path construction
+// 	firstPathTree := bidirectionalSearchTree(fullTree, recipesForTargetItem)
+
+// 	if firstPathTree != nil {
+// 		fmt.Println("\n--- First Constructible Non-Cyclic Path Tree Found ---")
+// 		printShortestPathTree(firstPathTree, "", true) // Using your existing print function for the result
+// 	} else {
+// 		fmt.Printf("\nCould not find any constructible non-cyclic path for '%s' via bidirectional search.\n", targetItemName)
+// 	}
+
+// 	fmt.Println("\n" + strings.Repeat("=", 40))
+// }
