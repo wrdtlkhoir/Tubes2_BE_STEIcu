@@ -313,3 +313,4 @@ func main() {
 	}
 	fmt.Printf("Number of visited nodes: %d\n", nodes2)
 }
+
