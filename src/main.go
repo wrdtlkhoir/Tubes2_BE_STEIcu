@@ -257,9 +257,6 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 			for _, tree := range trees {
 				treeNode := convertToTreeNode2(tree)
 				treeNodes = append(treeNodes, treeNode)
-
-				// Debug: Print each tree structure
-				// printTree(tree)
 			}
 
 			executionTime := time.Since(startTime).Milliseconds()
@@ -312,9 +309,9 @@ func main() {
 		log.Fatalf("Error saving recipes to JSON: %v", err)
 	}
 
-	http.HandleFunc("/api/search", searchHandler)
-	// http.HandleFunc("/api/tree", treeHandler) // Tambahkan endpoint baru
+	loadRecipes("recipes.json")
 
+	http.HandleFunc("/api/search", searchHandler)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
