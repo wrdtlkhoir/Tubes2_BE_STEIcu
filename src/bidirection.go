@@ -752,10 +752,15 @@ func main() {
 		return
 	}
 
-	targetItemName := "Science" // Or your desired target
+	// Anda bisa memilih salah satu cara:
 
-	// recipesForTargetItem will be of type map[string][][]string
-	// This represents the categorized recipes for the targetItemName
+	// Cara 1: Jalankan mainWithMultiplePaths langsung dengan data yang sudah dimuat
+	// Jumlah path yang ingin dicari
+	numPaths := 3
+
+	// Pilih target item yang ingin dicari
+	targetItemName := "Sun" // Ganti sesuai dengan target yang diinginkan
+
 	recipesForTargetItem, found := allRecipeData.Recipes[targetItemName]
 	if !found {
 		log.Printf("No recipes found for target item '%s' in allRecipeData.Recipes\n", targetItemName)
@@ -767,27 +772,8 @@ func main() {
 		return
 	}
 
-	// Assuming buildTreeBFS uses recipesForTargetItem to build the initial, possibly pruned, tree.
-	// buildTreeBFS needs to be robust in how it handles these recipes.
-	fullTree := buildTreeBFS(targetItemName, recipesForTargetItem)
-	if fullTree == nil || fullTree.root == nil {
-		log.Fatalf("Failed to build the full tree for %s. It might be a base element or have no recipes.", targetItemName)
-	}
-
-	fmt.Println("\nFull Recipe Derivation Tree (output depends on your print function):")
-	// print(fullTree) // Your placeholder for printing the full tree
-
-	// Perform bidirectional search, passing the specific recipes for the target item
-	fmt.Printf("\nStarting bidirectional search for %s (seeking first constructible path)...\n", targetItemName)
-	// The recipesForTargetItem (map[string][][]string) is passed for path construction
-	firstPathTree := bidirectionalSearchTree(fullTree, recipesForTargetItem)
-
-	if firstPathTree != nil {
-		fmt.Println("\n--- First Constructible Non-Cyclic Path Tree Found ---")
-		printShortestPathTree(firstPathTree, "", true) // Using your existing print function for the result
-	} else {
-		fmt.Printf("\nCould not find any constructible non-cyclic path for '%s' via bidirectional search.\n", targetItemName)
-	}
+	// Jalankan fungsi mainWithMultiplePaths dengan data dan jumlah path yang diinginkan
+	mainWithMultiplePaths(recipesForTargetItem, numPaths)
 
 	fmt.Println("\n" + strings.Repeat("=", 40))
 }
