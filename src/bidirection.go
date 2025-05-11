@@ -13,7 +13,7 @@ import (
 // var baseElements = map[string]bool{"Earth": true, "Air": true, "Fire": true, "Water": true}
 // func isBase(element string) bool { return baseElements[element] }
 
-func allLeavesAreBase(node *Node, visited map[*Node]bool) bool {
+func allLeavesAreBase(node *Nodebidir, visited map[*Nodebidir]bool) bool {
 	if node == nil {
 		return true // A nil ingredient in a recipe doesn't invalidate the path by this rule
 	}
@@ -46,7 +46,7 @@ func allLeavesAreBase(node *Node, visited map[*Node]bool) bool {
 
 // Helper to find all base leaf nodes in the tree structure.
 // This function traverses the *built tree* to find search starting points.
-func findBaseLeaves(node *Node, baseLeaves []*Node) []*Node {
+func findBaseLeaves(node *Nodebidir, baseLeaves []*Nodebidir) []*Nodebidir {
 	if node == nil {
 		return baseLeaves
 	}
@@ -69,7 +69,7 @@ func findBaseLeaves(node *Node, baseLeaves []*Node) []*Node {
 	return baseLeaves
 }
 
-func bidirectionalSearchTree(tree *Tree, recipesForItem map[string][][]string) *Node { // Added recipesForItem
+func bidirectionalSearchTree(tree *Treebidir, recipesForItem map[string][][]string) *Nodebidir { // Added recipesForItem
 	if tree == nil || tree.root == nil {
 		fmt.Println("Tree is empty, cannot perform search.")
 		return nil
@@ -80,14 +80,14 @@ func bidirectionalSearchTree(tree *Tree, recipesForItem map[string][][]string) *
 	}
 
 	q_f := list.New()
-	visited_f := make(map[*Node]*Node) // Store parent in path: child -> parent
+	visited_f := make(map[*Nodebidir]*Nodebidir) // Store parent in path: child -> parent
 	root_f := tree.root
 	q_f.PushBack(root_f)
 	visited_f[root_f] = nil
 
-	baseLeaves := findBaseLeaves(tree.root, []*Node{})
+	baseLeaves := findBaseLeaves(tree.root, []*Nodebidir{})
 	q_b := list.New()
-	visited_b := make(map[*Node]*Node) // Store parent in path: child -> parent (for backward path reconstruction, this means it's child's child)
+	visited_b := make(map[*Nodebidir]*Nodebidir) // Store parent in path: child -> parent (for backward path reconstruction, this means it's child's child)
 
 	if len(baseLeaves) == 0 {
 		fmt.Println("No base leaves found, cannot perform backward search.")
@@ -102,9 +102,9 @@ func bidirectionalSearchTree(tree *Tree, recipesForItem map[string][][]string) *
 	// ... (your logging for queue starts) ...
 
 	// Depth maps are still useful for understanding, though not for picking the "shortest" anymore
-	forwardDepth := make(map[*Node]int)
-	backwardDepth := make(map[*Node]int)
-	baseLeafSource := make(map[*Node]*Node) // Still useful for context if needed
+	forwardDepth := make(map[*Nodebidir]int)
+	backwardDepth := make(map[*Nodebidir]int)
+	baseLeafSource := make(map[*Nodebidir]*Nodebidir) // Still useful for context if needed
 
 	forwardDepth[root_f] = 0
 	for _, leaf := range baseLeaves {
@@ -117,7 +117,7 @@ func bidirectionalSearchTree(tree *Tree, recipesForItem map[string][][]string) *
 		// Step forward
 		if q_f.Len() > 0 {
 			frontElement_f := q_f.Front()
-			curr_f_instance := frontElement_f.Value.(*Node)
+			curr_f_instance := frontElement_f.Value.(*Nodebidir)
 			q_f.Remove(frontElement_f)
 
 			fmt.Printf("F: Processing node %s (Depth: %d)\n", curr_f_instance.element, forwardDepth[curr_f_instance])
@@ -140,7 +140,7 @@ func bidirectionalSearchTree(tree *Tree, recipesForItem map[string][][]string) *
 			}
 
 			for _, recipe := range curr_f_instance.combinations {
-				children := []*Node{recipe.ingredient1, recipe.ingredient2}
+				children := []*Nodebidir{recipe.ingredient1, recipe.ingredient2}
 				for _, child_instance := range children {
 					if child_instance == nil || child_instance.isCycleNode {
 						continue
@@ -170,7 +170,7 @@ func bidirectionalSearchTree(tree *Tree, recipesForItem map[string][][]string) *
 		// Step backward
 		if q_b.Len() > 0 {
 			frontElement_b := q_b.Front()
-			curr_b_instance := frontElement_b.Value.(*Node)
+			curr_b_instance := frontElement_b.Value.(*Nodebidir)
 			q_b.Remove(frontElement_b)
 
 			fmt.Printf("B: Processing node %s (Depth: %d)\n", curr_b_instance.element, backwardDepth[curr_b_instance])
@@ -223,17 +223,17 @@ func bidirectionalSearchTree(tree *Tree, recipesForItem map[string][][]string) *
 }
 
 // Constructs a new tree representing the shortest path from root to base elements
-func constructShortestPathTree(meetingNode *Node, visited_f, visited_b map[*Node]*Node, recipeData map[string][][]string) *Node {
+func constructShortestPathTree(meetingNode *Nodebidir, visited_f, visited_b map[*Nodebidir]*Nodebidir, recipeData map[string][][]string) *Nodebidir {
 	// First, trace path from meeting point to root (forward direction)
-	forwardPath := []*Node{}
+	forwardPath := []*Nodebidir{}
 	curr := meetingNode
 	for curr != nil {
-		forwardPath = append([]*Node{curr}, forwardPath...) // Add to front
+		forwardPath = append([]*Nodebidir{curr}, forwardPath...) // Add to front
 		curr = visited_f[curr]
 	}
 
 	// Trace path from meeting point to a base leaf (backward direction)
-	backwardPath := []*Node{}
+	backwardPath := []*Nodebidir{}
 	curr = meetingNode
 	for curr != nil {
 		backwardPath = append(backwardPath, curr)
@@ -264,19 +264,19 @@ func constructShortestPathTree(meetingNode *Node, visited_f, visited_b map[*Node
 
 // Builds a new tree with only the nodes in the shortest path
 // Includes all recipes required to reach base elements
-func buildShortestPathTree(path []*Node, recipeData map[string][][]string) *Node {
+func buildShortestPathTree(path []*Nodebidir, recipeData map[string][][]string) *Nodebidir {
 	if len(path) == 0 {
 		return nil
 	}
 
 	// Create a mapping from original nodes to cloned nodes
-	nodeMap := make(map[*Node]*Node)
+	nodeMap := make(map[*Nodebidir]*Nodebidir)
 
 	// First create clones for all nodes in the path
 	for _, origNode := range path {
-		nodeMap[origNode] = &Node{
+		nodeMap[origNode] = &Nodebidir{
 			element:      origNode.element,
-			combinations: []Recipe{},
+			combinations: []Recipebidir{},
 		}
 	}
 
@@ -295,7 +295,7 @@ func buildShortestPathTree(path []*Node, recipeData map[string][][]string) *Node
 }
 
 // expandNodeRecipes expands the combinations for each node in the path
-func expandNodeRecipes(path []*Node, nodeMap map[*Node]*Node, recipeData map[string][][]string) {
+func expandNodeRecipes(path []*Nodebidir, nodeMap map[*Nodebidir]*Nodebidir, recipeData map[string][][]string) {
 	for _, origNode := range path {
 		// Skip base elements - they don't have recipes
 		if isBase(origNode.element) {
@@ -320,7 +320,7 @@ func expandNodeRecipes(path []*Node, nodeMap map[*Node]*Node, recipeData map[str
 			ingredient2 := createOrGetIngredientNode(bestRecipe.ingredient2, nodeMap, clonedNode, path)
 
 			// Add recipe to the cloned node
-			clonedNode.combinations = append(clonedNode.combinations, Recipe{
+			clonedNode.combinations = append(clonedNode.combinations, Recipebidir{
 				ingredient1: ingredient1,
 				ingredient2: ingredient2,
 			})
@@ -341,12 +341,12 @@ func expandNodeRecipes(path []*Node, nodeMap map[*Node]*Node, recipeData map[str
 				bestRecipe := findBestRecipeFromData(origNode.element, recipes, path)
 
 				// Create the ingredient nodes
-				ing1Node := &Node{
+				ing1Node := &Nodebidir{
 					element: bestRecipe[0],
 					parent:  clonedNode,
 				}
 
-				ing2Node := &Node{
+				ing2Node := &Nodebidir{
 					element: bestRecipe[1],
 					parent:  clonedNode,
 				}
@@ -356,7 +356,7 @@ func expandNodeRecipes(path []*Node, nodeMap map[*Node]*Node, recipeData map[str
 				nodeMap[ing2Node] = ing2Node
 
 				// Add the recipe to the cloned node
-				clonedNode.combinations = append(clonedNode.combinations, Recipe{
+				clonedNode.combinations = append(clonedNode.combinations, Recipebidir{
 					ingredient1: ing1Node,
 					ingredient2: ing2Node,
 				})
@@ -366,7 +366,7 @@ func expandNodeRecipes(path []*Node, nodeMap map[*Node]*Node, recipeData map[str
 }
 
 // Finds the best recipe from recipe data for a node not in the original tree
-func findBestRecipeFromData(element string, recipes [][]string, path []*Node) []string {
+func findBestRecipeFromData(element string, recipes [][]string, path []*Nodebidir) []string {
 	if len(recipes) == 0 {
 		return nil
 	}
@@ -413,13 +413,13 @@ func findBestRecipeFromData(element string, recipes [][]string, path []*Node) []
 
 // Finds the best recipe for a node, prioritizing recipes with ingredients in the path
 // and completely avoiding recipes with cycle nodes
-func findBestRecipe(node *Node, path []*Node) Recipe {
+func findBestRecipe(node *Nodebidir, path []*Nodebidir) Recipebidir {
 	if len(node.combinations) == 0 {
-		return Recipe{} // Should not happen
+		return Recipebidir{} // Should not happen
 	}
 
 	// Start with the first recipe as the best
-	var bestRecipe Recipe
+	var bestRecipe Recipebidir
 	bestScore := -1
 
 	for _, recipe := range node.combinations {
@@ -466,7 +466,7 @@ func findBestRecipe(node *Node, path []*Node) Recipe {
 }
 
 // Check if a node is contained in the path
-func containsNode(path []*Node, node *Node) bool {
+func containsNode(path []*Nodebidir, node *Nodebidir) bool {
 	for _, pathNode := range path {
 		if pathNode == node {
 			return true
@@ -476,7 +476,7 @@ func containsNode(path []*Node, node *Node) bool {
 }
 
 // Check if a node with the given element name is contained in the path
-func containsNodeByName(path []*Node, element string) bool {
+func containsNodeByName(path []*Nodebidir, element string) bool {
 	for _, pathNode := range path {
 		if pathNode.element == element {
 			return true
@@ -487,7 +487,7 @@ func containsNodeByName(path []*Node, element string) bool {
 
 // Returns an existing or creates a new ingredient node
 // Will return nil for cycle nodes to avoid them in the result tree
-func createOrGetIngredientNode(origIngredient *Node, nodeMap map[*Node]*Node, parent *Node, path []*Node) *Node {
+func createOrGetIngredientNode(origIngredient *Nodebidir, nodeMap map[*Nodebidir]*Nodebidir, parent *Nodebidir, path []*Nodebidir) *Nodebidir {
 	// Skip nil nodes
 	if origIngredient == nil {
 		return nil
@@ -504,10 +504,10 @@ func createOrGetIngredientNode(origIngredient *Node, nodeMap map[*Node]*Node, pa
 	}
 
 	// Otherwise create a new node
-	clone := &Node{
+	clone := &Nodebidir{
 		element:      origIngredient.element,
 		parent:       parent,
-		combinations: []Recipe{},
+		combinations: []Recipebidir{},
 		// Never propagate cycle flags to the result tree
 	}
 
@@ -518,14 +518,14 @@ func createOrGetIngredientNode(origIngredient *Node, nodeMap map[*Node]*Node, pa
 }
 
 // Recursively expands an ingredient node and its children
-func expandIngredientRecursively(node *Node, nodeMap map[*Node]*Node, parent *Node, recipeData map[string][][]string) {
+func expandIngredientRecursively(node *Nodebidir, nodeMap map[*Nodebidir]*Nodebidir, parent *Nodebidir, recipeData map[string][][]string) {
 	// Skip base elements or nil nodes
 	if node == nil || isBase(node.element) {
 		return
 	}
 
 	// Check map to find original node
-	var origNode *Node
+	var origNode *Nodebidir
 	for origN, clonedN := range nodeMap {
 		if clonedN == node {
 			origNode = origN
@@ -536,7 +536,7 @@ func expandIngredientRecursively(node *Node, nodeMap map[*Node]*Node, parent *No
 	// If we found the original node and it has combinations
 	if origNode != nil && len(origNode.combinations) > 0 {
 		// Find the best recipe that doesn't include cycle nodes
-		bestRecipe := findBestRecipe(origNode, []*Node{}) // Empty path since this is outside the main path
+		bestRecipe := findBestRecipe(origNode, []*Nodebidir{}) // Empty path since this is outside the main path
 
 		// Skip if no valid recipe found (all recipes contain cycle nodes)
 		if bestRecipe.ingredient1 == nil && bestRecipe.ingredient2 == nil {
@@ -544,22 +544,22 @@ func expandIngredientRecursively(node *Node, nodeMap map[*Node]*Node, parent *No
 			recipes, exists := recipeData[node.element]
 			if exists && len(recipes) > 0 {
 				// Get best recipe from data
-				bestRecipeData := findBestRecipeFromData(node.element, recipes, []*Node{})
+				bestRecipeData := findBestRecipeFromData(node.element, recipes, []*Nodebidir{})
 
 				if len(bestRecipeData) == 2 {
 					// Create ingredient nodes
-					ing1Node := &Node{
+					ing1Node := &Nodebidir{
 						element: bestRecipeData[0],
 						parent:  node,
 					}
 
-					ing2Node := &Node{
+					ing2Node := &Nodebidir{
 						element: bestRecipeData[1],
 						parent:  node,
 					}
 
 					// Add recipe to node
-					node.combinations = append(node.combinations, Recipe{
+					node.combinations = append(node.combinations, Recipebidir{
 						ingredient1: ing1Node,
 						ingredient2: ing2Node,
 					})
@@ -580,12 +580,12 @@ func expandIngredientRecursively(node *Node, nodeMap map[*Node]*Node, parent *No
 		}
 
 		// Create recipe ingredients
-		ingredient1 := createOrGetIngredientNode(bestRecipe.ingredient1, nodeMap, node, []*Node{})
-		ingredient2 := createOrGetIngredientNode(bestRecipe.ingredient2, nodeMap, node, []*Node{})
+		ingredient1 := createOrGetIngredientNode(bestRecipe.ingredient1, nodeMap, node, []*Nodebidir{})
+		ingredient2 := createOrGetIngredientNode(bestRecipe.ingredient2, nodeMap, node, []*Nodebidir{})
 
 		// Add recipe to node if at least one ingredient is valid
 		if ingredient1 != nil || ingredient2 != nil {
-			node.combinations = append(node.combinations, Recipe{
+			node.combinations = append(node.combinations, Recipebidir{
 				ingredient1: ingredient1,
 				ingredient2: ingredient2,
 			})
@@ -605,22 +605,22 @@ func expandIngredientRecursively(node *Node, nodeMap map[*Node]*Node, parent *No
 		recipes, exists := recipeData[node.element]
 		if exists && len(recipes) > 0 {
 			// Get best recipe from data
-			bestRecipe := findBestRecipeFromData(node.element, recipes, []*Node{})
+			bestRecipe := findBestRecipeFromData(node.element, recipes, []*Nodebidir{})
 
 			if len(bestRecipe) == 2 {
 				// Create ingredient nodes
-				ing1Node := &Node{
+				ing1Node := &Nodebidir{
 					element: bestRecipe[0],
 					parent:  node,
 				}
 
-				ing2Node := &Node{
+				ing2Node := &Nodebidir{
 					element: bestRecipe[1],
 					parent:  node,
 				}
 
 				// Add recipe to node
-				node.combinations = append(node.combinations, Recipe{
+				node.combinations = append(node.combinations, Recipebidir{
 					ingredient1: ing1Node,
 					ingredient2: ing2Node,
 				})
@@ -641,7 +641,7 @@ func expandIngredientRecursively(node *Node, nodeMap map[*Node]*Node, parent *No
 }
 
 // printShortestPathTree prints the tree branch representing the shortest path
-func printShortestPathTree(node *Node, prefix string, isLast bool) {
+func printShortestPathTree(node *Nodebidir, prefix string, isLast bool) {
 	if node == nil {
 		return // Handles nil ingredient pointers
 	}

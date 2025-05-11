@@ -8,27 +8,27 @@ import (
 )
 
 type PathResult struct {
-	path             *Node
+	path             *Nodebidir
 	score            int
 	desc             string
-	actualTargetLeaf *Node
+	actualTargetLeaf *Nodebidir
 	pathSignature    string // Add a unique signature to identify duplicate paths
 }
 
-func isPathCyclic(node *Node) bool {
+func isPathCyclic(node *Nodebidir) bool {
 	if node == nil {
 		return false
 	}
 
 	// Use BFS to traverse the entire path tree
 	queue := list.New()
-	visited := make(map[*Node]bool)
+	visited := make(map[*Nodebidir]bool)
 
 	queue.PushBack(node)
 	visited[node] = true
 
 	for queue.Len() > 0 {
-		current := queue.Front().Value.(*Node)
+		current := queue.Front().Value.(*Nodebidir)
 		queue.Remove(queue.Front())
 
 		// Check if the current node is cyclic
@@ -63,7 +63,7 @@ func isPathCyclic(node *Node) bool {
 
 // findMultipleBidirectionalPaths performs concurrent bidirectional search
 // and returns the first n valid paths from root to base elements.
-func findMultipleBidirectionalPaths(tree *Tree, numPaths int) []*Node {
+func findMultipleBidirectionalPaths(tree *Treebidir, numPaths int) []*Nodebidir {
 	if tree == nil || tree.root == nil {
 		fmt.Println("Tree is empty, cannot perform search.")
 		return nil
@@ -76,14 +76,14 @@ func findMultipleBidirectionalPaths(tree *Tree, numPaths int) []*Node {
 
 	fmt.Printf("\n--- Starting Multi-Threaded Bidirectional Search for %d Paths ---\n", numPaths)
 
-	baseLeaves := findBaseLeaves(tree.root, []*Node{})
+	baseLeaves := findBaseLeaves(tree.root, []*Nodebidir{})
 	if len(baseLeaves) == 0 {
 		fmt.Println("No base leaves found in the tree, cannot perform backward search.")
 		return nil
 	}
 
 	// Filter out cyclic leaf nodes before starting search
-	var validLeaves []*Node
+	var validLeaves []*Nodebidir
 	for _, leaf := range baseLeaves {
 		if !leaf.isCycleNode {
 			validLeaves = append(validLeaves, leaf)
@@ -109,7 +109,7 @@ func findMultipleBidirectionalPaths(tree *Tree, numPaths int) []*Node {
 	resultChan := make(chan PathResult, numPaths*2) // Increase buffer size to avoid potential deadlocks
 	var wg sync.WaitGroup
 	var resultsMutex sync.Mutex
-	var foundPaths []*Node
+	var foundPaths []*Nodebidir
 	var numFoundPaths int
 
 	// Map to track path signatures we've already added
@@ -118,7 +118,7 @@ func findMultipleBidirectionalPaths(tree *Tree, numPaths int) []*Node {
 	// Start concurrent searches ONLY from valid non-cyclic base leaves
 	for i, singleBaseLeaf := range validLeaves {
 		wg.Add(1)
-		go func(leafIndex int, currentTargetLeaf *Node) {
+		go func(leafIndex int, currentTargetLeaf *Nodebidir) {
 			defer wg.Done()
 
 			// Check if we should continue searching based on paths found so far
@@ -136,7 +136,7 @@ func findMultipleBidirectionalPaths(tree *Tree, numPaths int) []*Node {
 				return
 			}
 
-			path, score, desc, actualLeafFound := bidirectionalSearchFromLeaf(tree.root, []*Node{currentTargetLeaf})
+			path, score, desc, actualLeafFound := bidirectionalSearchFromLeaf(tree.root, []*Nodebidir{currentTargetLeaf})
 
 			// Only proceed if we found a path and it doesn't contain any cyclic nodes
 			if path != nil && !isPathCyclic(path) {
@@ -197,7 +197,7 @@ func findMultipleBidirectionalPaths(tree *Tree, numPaths int) []*Node {
 }
 
 // generatePathSignature creates a unique string identifier for a path
-func generatePathSignature(node *Node) string {
+func generatePathSignature(node *Nodebidir) string {
 	if node == nil {
 		return ""
 	}
@@ -205,13 +205,13 @@ func generatePathSignature(node *Node) string {
 	// Use a breadth-first traversal to collect all nodes in the path
 	var result []string
 	queue := list.New()
-	visited := make(map[*Node]bool)
+	visited := make(map[*Nodebidir]bool)
 
 	queue.PushBack(node)
 	visited[node] = true
 
 	for queue.Len() > 0 {
-		current := queue.Front().Value.(*Node)
+		current := queue.Front().Value.(*Nodebidir)
 		queue.Remove(queue.Front())
 
 		// Add this node's element to the signature
@@ -234,13 +234,13 @@ func generatePathSignature(node *Node) string {
 	return strings.Join(result, "|")
 }
 
-func bidirectionalSearchFromLeaf(root *Node, targetBaseLeaves []*Node) (*Node, int, string, *Node) {
+func bidirectionalSearchFromLeaf(root *Nodebidir, targetBaseLeaves []*Nodebidir) (*Nodebidir, int, string, *Nodebidir) {
 	// Struct to hold meeting point data
 	type MeetingPoint struct {
-		node             *Node
+		node             *Nodebidir
 		forwardDepth     int
 		backwardDepth    int
-		actualTargetLeaf *Node
+		actualTargetLeaf *Nodebidir
 	}
 
 	if root == nil {
@@ -257,16 +257,16 @@ func bidirectionalSearchFromLeaf(root *Node, targetBaseLeaves []*Node) (*Node, i
 	}
 
 	q_f := list.New()
-	visited_f := make(map[*Node]*Node)
+	visited_f := make(map[*Nodebidir]*Nodebidir)
 	q_f.PushBack(root)
 	visited_f[root] = nil
-	forwardDepth := make(map[*Node]int)
+	forwardDepth := make(map[*Nodebidir]int)
 	forwardDepth[root] = 0
 
 	q_b := list.New()
-	visited_b := make(map[*Node]*Node)
-	backwardDepth := make(map[*Node]int)
-	baseLeafSource := make(map[*Node]*Node) // Track source base leaf for backward path
+	visited_b := make(map[*Nodebidir]*Nodebidir)
+	backwardDepth := make(map[*Nodebidir]int)
+	baseLeafSource := make(map[*Nodebidir]*Nodebidir) // Track source base leaf for backward path
 
 	// Initialize backward search from all targetBaseLeaves
 	validTargetsFound := false
@@ -292,7 +292,7 @@ func bidirectionalSearchFromLeaf(root *Node, targetBaseLeaves []*Node) (*Node, i
 		currLevelSize_f := q_f.Len()
 		for i := 0; i < currLevelSize_f; i++ {
 			frontElement_f := q_f.Front()
-			curr_f_instance := frontElement_f.Value.(*Node)
+			curr_f_instance := frontElement_f.Value.(*Nodebidir)
 			q_f.Remove(frontElement_f)
 
 			// Skip cyclic nodes entirely
@@ -313,7 +313,7 @@ func bidirectionalSearchFromLeaf(root *Node, targetBaseLeaves []*Node) (*Node, i
 			}
 
 			for _, recipe := range curr_f_instance.combinations {
-				children := []*Node{recipe.ingredient1, recipe.ingredient2}
+				children := []*Nodebidir{recipe.ingredient1, recipe.ingredient2}
 				for _, child_instance := range children {
 					// Skip nil or cyclic child nodes entirely
 					if child_instance == nil || child_instance.isCycleNode {
@@ -342,7 +342,7 @@ func bidirectionalSearchFromLeaf(root *Node, targetBaseLeaves []*Node) (*Node, i
 		currLevelSize_b := q_b.Len()
 		for i := 0; i < currLevelSize_b; i++ {
 			frontElement_b := q_b.Front()
-			curr_b_instance := frontElement_b.Value.(*Node)
+			curr_b_instance := frontElement_b.Value.(*Nodebidir)
 			q_b.Remove(frontElement_b)
 
 			// Skip cyclic nodes entirely

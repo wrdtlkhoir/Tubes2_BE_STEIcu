@@ -6,24 +6,24 @@ import (
 )
 
 // Recipe represents a single combination of ingredients.
-type Recipe struct {
-	ingredient1 *Node
-	ingredient2 *Node
+type Recipebidir struct {
+	ingredient1 *Nodebidir
+	ingredient2 *Nodebidir
 }
 
 // Node represents an element in the recipe tree.
-type Node struct {
+type Nodebidir struct {
 	element      string
-	combinations []Recipe // Combinations needed to make this element
+	combinations []Recipebidir // Combinations needed to make this element
 
-	parent *Node // Parent in the tree structure
+	parent *Nodebidir // Parent in the tree structure
 
 	isCycleNode bool // Added: Flag to indicate this node represents a cycle point
 }
 
 // Tree represents the entire derivation tree starting from the root element.
-type Tree struct {
-	root *Node
+type Treebidir struct {
+	root *Nodebidir
 }
 
 // check if an element is base element
@@ -36,7 +36,7 @@ func isBase(element string) bool {
 
 // isAncestor checks if targetElement is an element of any ancestor node
 // in the tree structure above the starting 'node'.
-func isAncestor(node *Node, targetElement string) bool {
+func isAncestor(node *Nodebidir, targetElement string) bool {
 	// Start from the immediate parent
 	curr := node.parent
 	for curr != nil {
@@ -51,9 +51,9 @@ func isAncestor(node *Node, targetElement string) bool {
 
 // buildTreeBFS builds a *full* derivation tree using BFS.
 // It detects cycles in branches and marks the node causing the cycle as a leaf.
-func buildTreeBFS(target string, recipeData map[string][][]string) *Tree {
+func buildTreeBFS(target string, recipeData map[string][][]string) *Treebidir {
 	// Create the root node for the target element
-	root := &Node{element: target, parent: nil} // Root has no parent
+	root := &Nodebidir{element: target, parent: nil} // Root has no parent
 
 	queue := list.New()
 	queue.PushBack(root)
@@ -66,7 +66,7 @@ func buildTreeBFS(target string, recipeData map[string][][]string) *Tree {
 	for queue.Len() > 0 {
 		// Dequeue a node from the front of the queue
 		frontElement := queue.Front()
-		currentNode := frontElement.Value.(*Node)
+		currentNode := frontElement.Value.(*Nodebidir)
 		queue.Remove(frontElement)
 
 		// Print the element being currently processed
@@ -106,7 +106,7 @@ func buildTreeBFS(target string, recipeData map[string][][]string) *Tree {
 			fmt.Printf("    Processing combination %d: [%s, %s]\n", i+1, ing1Name, ing2Name)
 
 			// Create a Recipe instance for this combination
-			recipe := Recipe{}
+			recipe := Recipebidir{}
 			// Track if we successfully created/enqueued at least one non-base, non-cycle ingredient node
 			// in this combination to potentially add the recipe. (Decided earlier to add recipe always if combination exists)
 			// Sticking to adding recipe always and handling nil/isCycleNode in print.
@@ -116,14 +116,14 @@ func buildTreeBFS(target string, recipeData map[string][][]string) *Tree {
 				// Cycle detected: ingredientName is an ancestor of currentNode
 				fmt.Printf("      Cycle detected: '%s' is an ancestor of '%s'. Marking node as cycle leaf.\n", ing1Name, currentNode.element)
 				// Create node, mark as cycle node, but DO NOT enqueue
-				recipe.ingredient1 = &Node{element: ing1Name, parent: currentNode, isCycleNode: true}
+				recipe.ingredient1 = &Nodebidir{element: ing1Name, parent: currentNode, isCycleNode: true}
 			} else if isBase(ing1Name) {
 				// It's a base element, create node but don't enqueue for further expansion
-				recipe.ingredient1 = &Node{element: ing1Name, parent: currentNode}
+				recipe.ingredient1 = &Nodebidir{element: ing1Name, parent: currentNode}
 				fmt.Println("      ", ing1Name, "is base, not enqueued.")
 			} else {
 				// Not base and not an ancestor, create node and enqueue for future expansion
-				ing1Node := &Node{element: ing1Name, parent: currentNode}
+				ing1Node := &Nodebidir{element: ing1Name, parent: currentNode}
 				recipe.ingredient1 = ing1Node
 				queue.PushBack(ing1Node)
 				fmt.Println("      Enqueued:", ing1Node.element)
@@ -134,14 +134,14 @@ func buildTreeBFS(target string, recipeData map[string][][]string) *Tree {
 				// Cycle detected
 				fmt.Printf("      Cycle detected: '%s' is an ancestor of '%s'. Marking node as cycle leaf.\n", ing2Name, currentNode.element)
 				// Create node, mark as cycle node, but DO NOT enqueue
-				recipe.ingredient2 = &Node{element: ing2Name, parent: currentNode, isCycleNode: true}
+				recipe.ingredient2 = &Nodebidir{element: ing2Name, parent: currentNode, isCycleNode: true}
 			} else if isBase(ing2Name) {
 				// It's a base element
-				recipe.ingredient2 = &Node{element: ing2Name, parent: currentNode}
+				recipe.ingredient2 = &Nodebidir{element: ing2Name, parent: currentNode}
 				fmt.Println("      ", ing2Name, "is base, not enqueued.")
 			} else {
 				// Not base and not an ancestor
-				ing2Node := &Node{element: ing2Name, parent: currentNode}
+				ing2Node := &Nodebidir{element: ing2Name, parent: currentNode}
 				recipe.ingredient2 = ing2Node
 				queue.PushBack(ing2Node)
 				fmt.Println("      Enqueued:", ing2Node.element)
@@ -156,12 +156,12 @@ func buildTreeBFS(target string, recipeData map[string][][]string) *Tree {
 	}
 
 	fmt.Println("--- BFS building finished ---")
-	return &Tree{root: root}
+	return &Treebidir{root: root}
 }
 
 // --- Tree Printing Helper (Updated to handle cycle nodes) ---
 
-func printTreeHelper(node *Node, prefix string, isLast bool) {
+func printTreeHelper(node *Nodebidir, prefix string, isLast bool) {
 	if node == nil {
 		return // Handles nil ingredient pointers
 	}
@@ -216,7 +216,7 @@ func printTreeHelper(node *Node, prefix string, isLast bool) {
 }
 
 // call this to print tree
-func printTree(t *Tree) {
+func printTree(t *Treebidir) {
 	if t == nil || t.root == nil {
 		fmt.Println("Tree is empty")
 		return
