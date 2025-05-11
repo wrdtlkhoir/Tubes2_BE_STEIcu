@@ -4,9 +4,9 @@ import (
 	"container/list"
 	"encoding/json"
 	"fmt"
-	"log"
+	// "log"
 	"os"
-	"strings"
+	// "strings"
 )
 
 // (Ensure isBase function is defined elsewhere)
@@ -735,45 +735,45 @@ func LoadOutputDataFromJson(filename string) (OutputData, error) {
 	return data, nil
 }
 
-func main() {
-	var allRecipeData OutputData
+// func main() {
+// 	var allRecipeData OutputData
 
-	log.Println("Loading recipe data from recipes.json...")
-	loadedData, err := LoadOutputDataFromJson("recipes.json") // Ensure this file path is correct
-	if err != nil {
-		log.Fatalf("Error loading recipe data from JSON: %v", err)
-		return
-	}
-	allRecipeData = loadedData
-	log.Println("Recipe data loaded successfully.")
+// 	log.Println("Loading recipe data from recipes.json...")
+// 	loadedData, err := LoadOutputDataFromJson("recipes.json") // Ensure this file path is correct
+// 	if err != nil {
+// 		log.Fatalf("Error loading recipe data from JSON: %v", err)
+// 		return
+// 	}
+// 	allRecipeData = loadedData
+// 	log.Println("Recipe data loaded successfully.")
 
-	if allRecipeData.Recipes == nil {
-		log.Fatalln("Recipe data is empty after loading. Cannot proceed.")
-		return
-	}
+// 	if allRecipeData.Recipes == nil {
+// 		log.Fatalln("Recipe data is empty after loading. Cannot proceed.")
+// 		return
+// 	}
 
-	// Anda bisa memilih salah satu cara:
+// 	// Anda bisa memilih salah satu cara:
 
-	// Cara 1: Jalankan mainWithMultiplePaths langsung dengan data yang sudah dimuat
-	// Jumlah path yang ingin dicari
-	// numPaths := 3
+// 	// Cara 1: Jalankan mainWithMultiplePaths langsung dengan data yang sudah dimuat
+// 	// Jumlah path yang ingin dicari
+// 	// numPaths := 3
 
-	// Pilih target item yang ingin dicari
-	targetItemName := "Human" // Ganti sesuai dengan target yang diinginkan
+// 	// Pilih target item yang ingin dicari
+// 	targetItemName := "Human" // Ganti sesuai dengan target yang diinginkan
 
-	recipesForTargetItem, found := allRecipeData.Recipes[targetItemName]
-	if !found {
-		log.Printf("No recipes found for target item '%s' in allRecipeData.Recipes\n", targetItemName)
-		available := []string{}
-		for k := range allRecipeData.Recipes {
-			available = append(available, k)
-		}
-		log.Printf("Available items in loaded data: %v", available)
-		return
-	}
+// 	recipesForTargetItem, found := allRecipeData.Recipes[targetItemName]
+// 	if !found {
+// 		log.Printf("No recipes found for target item '%s' in allRecipeData.Recipes\n", targetItemName)
+// 		available := []string{}
+// 		for k := range allRecipeData.Recipes {
+// 			available = append(available, k)
+// 		}
+// 		log.Printf("Available items in loaded data: %v", available)
+// 		return
+// 	}
 
-	// Jalankan fungsi mainWithMultiplePaths dengan data dan jumlah path yang diinginkan
-	mainWithBFS(recipesForTargetItem)
+// 	// Jalankan fungsi mainWithMultiplePaths dengan data dan jumlah path yang diinginkan
+// 	mainWithBFS(recipesForTargetItem)
 
-	fmt.Println("\n" + strings.Repeat("=", 40))
-}
+// 	fmt.Println("\n" + strings.Repeat("=", 40))
+// }

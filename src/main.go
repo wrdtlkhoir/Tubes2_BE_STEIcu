@@ -229,28 +229,28 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(respData)
 }
 
-// func main() {
-// 	// First scrape the recipes
-// 	var err error
-// 	recipeData, err = ScrapeInitialRecipes()
-// 	if err != nil {
-// 		log.Fatalf("Error scraping recipes: %v", err)
-// 	}
+func main() {
+	// First scrape the recipes
+	var err error
+	recipeData, err = ScrapeInitialRecipes()
+	if err != nil {
+		log.Fatalf("Error scraping recipes: %v", err)
+	}
 
-// 	// Save them to file
-// 	err = SaveRecipesToJson(recipeData, "initial_recipes.json")
-// 	if err != nil {
-// 		log.Fatalf("Error saving recipes to JSON: %v", err)
-// 	}
+	// Save them to file
+	err = SaveRecipesToJson(recipeData, "initial_recipes.json")
+	if err != nil {
+		log.Fatalf("Error saving recipes to JSON: %v", err)
+	}
 
-// 	http.HandleFunc("/api/search", searchHandler)
-// 	// http.HandleFunc("/api/tree", treeHandler) // Tambahkan endpoint baru
+	http.HandleFunc("/api/search", searchHandler)
+	// http.HandleFunc("/api/tree", treeHandler) // Tambahkan endpoint baru
 
-// 	port := os.Getenv("PORT")
-// 	if port == "" {
-// 		port = "8080"
-// 	}
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
 
-// 	log.Printf("Server running on port %s\n", port)
-// 	log.Fatal(http.ListenAndServe(":"+port, nil))
-// }
+	log.Printf("Server running on port %s\n", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
+}
