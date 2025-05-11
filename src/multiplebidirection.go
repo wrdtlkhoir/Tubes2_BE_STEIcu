@@ -440,7 +440,7 @@ func bidirectionalSearchFromLeaf(root *Nodebidir, targetBaseLeaves []*Nodebidir)
 
 // Replacement for the main function to demonstrate the multi-path implementation
 func mainWithMultiplePaths(recipeData map[string][][]string, numPaths int) {
-	targetElement := "Sun"
+	targetElement := "Human"
 
 	// Build tree from data
 	fullTree := buildTreeBFS(targetElement, recipeData)
