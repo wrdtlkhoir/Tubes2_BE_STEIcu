@@ -3,6 +3,7 @@ package main
 import (
 	"container/list"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 )
@@ -438,25 +439,51 @@ func bidirectionalSearchFromLeaf(root *Nodebidir, targetBaseLeaves []*Nodebidir)
 	return resultTree, bestTotalDepth, pathDesc, bestMeetingPointData.actualTargetLeaf
 }
 
-// Replacement for the main function to demonstrate the multi-path implementation
-func mainWithMultiplePaths(recipeData map[string][][]string, numPaths int) {
-	targetElement := "Human"
+func searchBidirectionMultiple(target string, num int) []*Nodebidir {
+	var allRecipeData OutputData
 
-	// Build tree from data
-	fullTree := buildTreeBFS(targetElement, recipeData)
+	log.Println("Loading recipe data from recipes.json...")
+	loadedData, err := LoadOutputDataFromJson("recipes.json") // Ensure this file path is correct
+	if err != nil {
+		log.Fatalf("Error loading recipe data from JSON: %v", err)
+	}
+	allRecipeData = loadedData
+	log.Println("Recipe data loaded successfully.")
 
-	// Print the full tree
+	if allRecipeData.Recipes == nil {
+		log.Fatalln("Recipe data is empty after loading. Cannot proceed.")
+	}
+
+	recipesForTargetItem, found := allRecipeData.Recipes[target]
+	if !found {
+		log.Printf("No recipes found for target item '%s' in allRecipeData.Recipes\n", target)
+		available := []string{}
+		for k := range allRecipeData.Recipes {
+			available = append(available, k)
+		}
+		log.Printf("Available items in loaded data: %v", available)
+	}
+	fullTree := buildTreeBFS(target, recipesForTargetItem)
+
 	fmt.Println("\nFull Recipe Derivation Tree:")
 	printTreeBidir(fullTree)
 
-	// Perform multi-path bidirectional search
-	foundPaths := findMultipleBidirectionalPaths(fullTree, numPaths)
+	// Perform standard BFS search
+	pathTree := multipleBfs(fullTree, num)
 
-	fmt.Printf("\nFound %d paths:\n", len(foundPaths))
-	for i, path := range foundPaths {
-		fmt.Printf("\nPath %d:\n", i+1)
-		printShortestPathTree(path, "", true)
+	if pathTree != nil {
+		fmt.Println("\nPath Tree from BFS:")
+		fmt.Printf("\nFound %d paths:\n", len(pathTree))
+		for i, path := range pathTree {
+			fmt.Printf("\nPath %d:\n", i+1)
+			printShortestPathTree(path, "", true)
+		}
+
+	} else {
+		fmt.Println("Could not find a valid path without cycles.")
 	}
 
 	fmt.Println("\n" + strings.Repeat("=", 40)) // Separator
+
+	return pathTree
 }

@@ -150,7 +150,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 
 			// Debug: Print the tree structure
 			printTree(tree)
-		} else {
+		} else if req.Algorithm == "BFS" {
 			tree := searchBFSOne(req.Target)
 			treeNode := convertToTreeNode2(tree)
 			executionTime := time.Since(startTime).Milliseconds()
@@ -160,6 +160,15 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 				NodesVisited:  node,
 			}
 
+		} else {
+			tree := searchBidirectOne(req.Target)
+			treeNode := convertToTreeNode2(tree)
+			executionTime := time.Since(startTime).Milliseconds()
+			resp = SearchResponse{
+				Trees:         []*TreeNode{treeNode},
+				ExecutionTime: float64(executionTime),
+				NodesVisited:  node,
+			}
 		}
 	} else { // multiple
 		var trees []*Tree
@@ -201,12 +210,49 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 				ExecutionTime: float64(executionTime),
 				NodesVisited:  totalNodes,
 			}
-		} else {
+		} else if req.Algorithm == "BFS" {
 			maxRecipes := req.MaxRecipes
 			if maxRecipes <= 0 {
 				maxRecipes = 1 // Default value
 			}
 			trees := searchBFSMultiple(req.Target, maxRecipes)
+			var treeNodes []*TreeNode
+			for _, tree := range trees {
+				treeNode := convertToTreeNode2(tree)
+				treeNodes = append(treeNodes, treeNode)
+
+				// Debug: Print each tree structure
+				// printTree(tree)
+			}
+
+			executionTime := time.Since(startTime).Milliseconds()
+
+			// Define a new response structure for multiple trees
+			type MultipleSearchResponse struct {
+				Trees         []*TreeNode `json:"trees"`
+				NodesVisited  int         `json:"nodesVisited"`
+				ExecutionTime float64     `json:"executionTime"`
+			}
+
+			// Calculate total nodes visited if multiple counts were returned
+			totalNodes := 0
+			if len(nodeVisited) > 0 {
+				for _, n := range nodeVisited {
+					totalNodes += n
+				}
+			}
+
+			resp = MultipleSearchResponse{
+				Trees:         treeNodes,
+				ExecutionTime: float64(executionTime),
+				NodesVisited:  totalNodes,
+			}
+		} else {
+			maxRecipes := req.MaxRecipes
+			if maxRecipes <= 0 {
+				maxRecipes = 1 // Default value
+			}
+			trees := searchBidirectionMultiple(req.Target, maxRecipes)
 			var treeNodes []*TreeNode
 			for _, tree := range trees {
 				treeNode := convertToTreeNode2(tree)
