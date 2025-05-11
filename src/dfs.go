@@ -24,7 +24,6 @@ func searchDFSOne(target string) (*Tree, int) {
 		fmt.Printf("🚨 still in path: %s\n", key)
 	}
 
-
 	if found {
 		return &Tree{root: result}, cntNode
 	}
@@ -193,10 +192,9 @@ func dfsAll(element string, numOfPath int, currentRecipeMap map[string][][]strin
 	return allFinalTargetTrees
 }
 
-
 func dfsSubTree(element string, currentRecipeMap map[string][][]string, visitedFromCaller map[string]bool) []*Node {
 	fmt.Printf("dfs subtree: %s\n", element)
-	
+
 	// Check if current element exists in the path so far
 	if visitedFromCaller[element] {
 		// fmt.Printf("Loop detected for element: %s\n", element)
@@ -241,7 +239,7 @@ func dfsSubTree(element string, currentRecipeMap map[string][][]string, visitedF
 		// Only proceed if both paths are valid (no loops detected)
 		if len(leftIngredientOptions) == 0 || len(rightIngredientOptions) == 0 {
 			// Skip this combination if either path contains a loop
-			fmt.Printf("Skipping invalid subpath for %s: left=%d, right=%d\n", 
+			fmt.Printf("Skipping invalid subpath for %s: left=%d, right=%d\n",
 				element, len(leftIngredientOptions), len(rightIngredientOptions))
 			continue
 		}
@@ -288,29 +286,27 @@ func copyVisitedMap(original map[string]bool) map[string]bool {
 	return copied
 }
 
+// func main() {
+// 	loadRecipes("recipes.json")
+// 	target := "Mud"
+// 	numOfRecipe := 5
 
-func main() {
-	loadRecipes("recipes.json")
-	target := "Mud"
-	numOfRecipe := 5
+// 	// ini buat debug result aja
+// 	// tree := InitTree(target, recipeData.Recipes[target])
+// 	// printTree(tree)
 
-	// ini buat debug result aja
-	// tree := InitTree(target, recipeData.Recipes[target])
-	// printTree(tree)
+// 	// Try Single Recipe
+// 	result, nodes := searchDFSOne(target)
+// 	printTree(result)
+// 	if result.root == nil {
+// 		fmt.Println("root is nil")
+// 	}
+// 	fmt.Printf("Number of visited nodes: %d\n", nodes)
 
-	// Try Single Recipe
-	result, nodes := searchDFSOne(target)
-	printTree(result)
-	if result.root == nil {
-		fmt.Println("root is nil")
-	}
-	fmt.Printf("Number of visited nodes: %d\n", nodes)
-
-	// Try multiple Recipe
-	result2, nodes2 := searchDFSMultiple(target, numOfRecipe)
-	for _, recipe := range result2 {
-		printTree(recipe)
-	}
-	fmt.Printf("Number of visited nodes: %d\n", nodes2)
-}
-
+// 	// Try multiple Recipe
+// 	result2, nodes2 := searchDFSMultiple(target, numOfRecipe)
+// 	for _, recipe := range result2 {
+// 		printTree(recipe)
+// 	}
+// 	fmt.Printf("Number of visited nodes: %d\n", nodes2)
+// }
