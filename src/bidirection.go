@@ -295,71 +295,104 @@ func buildShortestPathTree(path []*Nodebidir, recipeData map[string][][]string) 
 }
 
 // expandNodeRecipes expands the combinations for each node in the path
+// expandNodeRecipes mengisi kombinasi resep untuk setiap node dalam path yang sudah di-clone.
 func expandNodeRecipes(path []*Nodebidir, nodeMap map[*Nodebidir]*Nodebidir, recipeData map[string][][]string) {
-	for _, origNode := range path {
-		// Skip base elements - they don't have recipes
-		if isBase(origNode.element) {
+	// Helper untuk memeriksa apakah node asli (pointer) ada di dalam 'path' linear.
+	isOriginalNodeActuallyInPath := func(nodeToTest *Nodebidir, currentLinearPath []*Nodebidir) bool {
+		if nodeToTest == nil {
+			return false
+		}
+		for _, pathNode := range currentLinearPath {
+			if pathNode == nodeToTest { // Perbandingan pointer
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, origNode := range path { // Iterasi melalui node-node asli di jalur BFS
+		if isBase(origNode.element) { // Lewati elemen dasar
 			continue
 		}
 
-		clonedNode := nodeMap[origNode]
+		clonedNode := nodeMap[origNode] // Dapatkan clone dari node saat ini
 
-		// Find the best recipe for this node
+		// Jika node asli memiliki kombinasi resep (dari buildTreeBFS)
 		if len(origNode.combinations) > 0 {
+			// Temukan resep terbaik yang sesuai dengan jalur saat ini.
+			// Asumsi: findBestRecipe mengembalikan Recipebidir dengan ingredient1 & ingredient2 sbg *Nodebidir asli.
 			bestRecipe := findBestRecipe(origNode, path)
 
-			// Skip if both ingredients are cycle nodes
+			// Lewati jika kedua ingredient dari resep terbaik adalah cycle node atau nil
 			if (bestRecipe.ingredient1 == nil || bestRecipe.ingredient1.isCycleNode) &&
 				(bestRecipe.ingredient2 == nil || bestRecipe.ingredient2.isCycleNode) {
 				fmt.Printf("Warning: No valid recipe found for %s (all recipes contain cycle nodes)\n", origNode.element)
 				continue
 			}
 
-			// Create recipe ingredients
-			ingredient1 := createOrGetIngredientNode(bestRecipe.ingredient1, nodeMap, clonedNode, path)
-			ingredient2 := createOrGetIngredientNode(bestRecipe.ingredient2, nodeMap, clonedNode, path)
+			// Buat atau dapatkan node clone untuk ingredient.
+			// bestRecipe.ingredientX adalah pointer ke node asli.
+			// ingredientXCloned adalah pointer ke node clone (bisa dari nodeMap atau baru dibuat).
+			ingredient1Cloned := createOrGetIngredientNode(bestRecipe.ingredient1, nodeMap, clonedNode, path)
+			ingredient2Cloned := createOrGetIngredientNode(bestRecipe.ingredient2, nodeMap, clonedNode, path)
 
-			// Add recipe to the cloned node
-			clonedNode.combinations = append(clonedNode.combinations, Recipebidir{
-				ingredient1: ingredient1,
-				ingredient2: ingredient2,
-			})
-
-			// Recursively expand the ingredients if they're not base elements and not already in the path
-			if ingredient1 != nil && !isBase(ingredient1.element) && !containsNodeByName(path, ingredient1.element) {
-				expandIngredientRecursively(ingredient1, nodeMap, clonedNode, recipeData)
+			// Tambahkan resep (dengan node clone) ke node clone saat ini
+			if ingredient1Cloned != nil || ingredient2Cloned != nil { // Hanya tambah jika ada setidaknya satu ingredient valid
+				clonedNode.combinations = append(clonedNode.combinations, Recipebidir{
+					ingredient1: ingredient1Cloned,
+					ingredient2: ingredient2Cloned,
+				})
 			}
 
-			if ingredient2 != nil && !isBase(ingredient2.element) && !containsNodeByName(path, ingredient2.element) {
-				expandIngredientRecursively(ingredient2, nodeMap, clonedNode, recipeData)
+			// Panggil expandIngredientRecursively untuk ingredient yang valid
+			// dan JIKA node asli dari ingredient tersebut TIDAK ada di jalur BFS utama.
+			// Ini penting untuk mengekspansi cabang "kembar" yang tidak dilalui BFS.
+
+			if ingredient1Cloned != nil && !isBase(ingredient1Cloned.element) &&
+				(bestRecipe.ingredient1 != nil && !isOriginalNodeActuallyInPath(bestRecipe.ingredient1, path)) {
+				expandIngredientRecursively(ingredient1Cloned, nodeMap, clonedNode, recipeData)
 			}
-		} else if origNode != path[len(path)-1] { // Not the base leaf at the end
-			// Try to look up a recipe from the recipe data if none found in the original node
+
+			if ingredient2Cloned != nil && !isBase(ingredient2Cloned.element) &&
+				(bestRecipe.ingredient2 != nil && !isOriginalNodeActuallyInPath(bestRecipe.ingredient2, path)) {
+				expandIngredientRecursively(ingredient2Cloned, nodeMap, clonedNode, recipeData)
+			}
+
+		} else if origNode != path[len(path)-1] { // Node bukan leaf dari path & tidak punya kombinasi dari tree asli
+			// Coba cari resep dari recipeData jika tidak ada di node asli.
 			recipes, exists := recipeData[origNode.element]
 			if exists && len(recipes) > 0 {
-				// Find the best recipe from the data
-				bestRecipe := findBestRecipeFromData(origNode.element, recipes, path)
+				// Asumsi: findBestRecipeFromData memilih satu resep string dari `recipes`.
+				bestRecipeStrings := findBestRecipeFromData(origNode.element, recipes, path) // Misal: []string{"ing1_name", "ing2_name"}
 
-				// Create the ingredient nodes
-				ing1Node := &Nodebidir{
-					element: bestRecipe[0],
-					parent:  clonedNode,
+				if len(bestRecipeStrings) == 2 { // Pastikan resep valid
+					// Buat node baru untuk ingredient (karena ini tidak dari tree asli, tapi recipeData)
+					ing1Node := &Nodebidir{
+						element: bestRecipeStrings[0],
+						parent:  clonedNode,
+					}
+					// nodeMap tidak diupdate dengan ing1Node/ing2Node ini karena nodeMap adalah untuk node asli di path.
+					// Jika ing1Node/ing2Node perlu di-cache, mekanisme lain diperlukan di createOrGetIngredientNode/expandIngredientRecursively.
+
+					ing2Node := &Nodebidir{
+						element: bestRecipeStrings[1],
+						parent:  clonedNode,
+					}
+
+					clonedNode.combinations = append(clonedNode.combinations, Recipebidir{
+						ingredient1: ing1Node,
+						ingredient2: ing2Node,
+					})
+
+					// Ekspansi rekursif untuk ingredient baru ini jika bukan elemen dasar.
+					// Karena ini baru dari recipeData, mereka pasti tidak ada di 'path' asli.
+					if !isBase(ing1Node.element) {
+						expandIngredientRecursively(ing1Node, nodeMap, clonedNode, recipeData)
+					}
+					if !isBase(ing2Node.element) {
+						expandIngredientRecursively(ing2Node, nodeMap, clonedNode, recipeData)
+					}
 				}
-
-				ing2Node := &Nodebidir{
-					element: bestRecipe[1],
-					parent:  clonedNode,
-				}
-
-				// Add to the node map
-				nodeMap[ing1Node] = ing1Node
-				nodeMap[ing2Node] = ing2Node
-
-				// Add the recipe to the cloned node
-				clonedNode.combinations = append(clonedNode.combinations, Recipebidir{
-					ingredient1: ing1Node,
-					ingredient2: ing2Node,
-				})
 			}
 		}
 	}
@@ -756,7 +789,7 @@ func main() {
 
 	// Cara 1: Jalankan mainWithMultiplePaths langsung dengan data yang sudah dimuat
 	// Jumlah path yang ingin dicari
-	// numPaths := 3
+	numPaths := 3
 
 	// Pilih target item yang ingin dicari
 	targetItemName := "Human" // Ganti sesuai dengan target yang diinginkan
@@ -773,7 +806,7 @@ func main() {
 	}
 
 	// Jalankan fungsi mainWithMultiplePaths dengan data dan jumlah path yang diinginkan
-	mainWithBFS(recipesForTargetItem)
+	mainWithMultiplePaths(recipesForTargetItem, numPaths)
 
 	fmt.Println("\n" + strings.Repeat("=", 40))
 }
