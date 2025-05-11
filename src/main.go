@@ -126,7 +126,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 			// Debug: Print the tree structure
 			printTree(tree)
 		} else {
-			tree, node = searchBFSOne(req.Target)
+			// tree, node = searchBFSOne(req.Target)
 			treeNode := convertToTreeNode(tree.root)
 			executionTime := time.Since(startTime).Milliseconds()
 			resp = SearchResponse{

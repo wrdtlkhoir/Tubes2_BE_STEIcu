@@ -1,77 +1,134 @@
 package main
 
 import (
+	"container/list"
 	"fmt"
+	"strings"
 	"sync"
 )
 
-/*** SINGLE RECIPE BFS ***/
+// bfsOne performs a standard BFS search (not bidirectional)
+// to find a constructible non-cyclic path from the root to base elements
+func bfsOne(tree *Treebidir, recipesForItem map[string][][]string) *Nodebidir {
+	if tree == nil || tree.root == nil {
+		fmt.Println("Tree is empty, cannot perform search.")
+		return nil
+	}
+	if tree.root.isCycleNode {
+		fmt.Println("Root is a cycle node, cannot perform search.")
+		return nil
+	}
 
-var memoSB map[string]*Node
-var mainDataBFS map[string][][]string
-var visitedBFS map[string]bool
+	// BFS queue and visited map
+	q := list.New()
+	visited := make(map[*Nodebidir]*Nodebidir) // Store parent in path: child -> parent
 
-func searchBFSOne(target string) (*Tree, int) {
-	fmt.Println("start bfs single")
-	memoSB = make(map[string]*Node)
-	mainDataBFS = recipeData.Recipes[target]
-	visitedBFS = make(map[string]bool)
+	// Initialize with root
+	root := tree.root
+	q.PushBack(root)
+	visited[root] = nil
 
-	result, cntNode := bfsOne(target)
+	// Track depth for debugging/reporting
+	depth := make(map[*Nodebidir]int)
+	depth[root] = 0
 
-	return &Tree{root: result}, cntNode
-}
+	fmt.Println("\n--- Starting BFS Search (seeking first constructible non-cyclic path) ---")
 
-func bfsOne(element string) (*Node, int) {
-	cntNode := 0
+	// Perform BFS
+	for q.Len() > 0 {
+		// Get the front element
+		frontElement := q.Front()
+		current := frontElement.Value.(*Nodebidir)
+		q.Remove(frontElement)
 
-	pendingNodes := make(map[string][]string)
-	nodeMap := make(map[string]*Node)
+		fmt.Printf("Processing node %s (Depth: %d)\n", current.element, depth[current])
 
-	queue := []string{element}
-	visitedBFS[element] = true
-
-	for len(queue) > 0 {
-		element := queue[0]
-		queue = queue[1:]
-
-		if _, exists := nodeMap[element]; !exists {
-			nodeMap[element] = &Node{element: element}
-		}
-
-		if isBase(element) {
+		// Skip cycle nodes
+		if current.isCycleNode {
+			fmt.Printf("Skipping cycle node %s\n", current.element)
 			continue
 		}
 
-		if ingredients, hasRecipe := mainDataBFS[element]; hasRecipe && len(ingredients) > 0 {
-			pair := ingredients[0]
-			pendingNodes[element] = pair
+		// Check if we've reached a base element
+		if isBase(current.element) {
+			fmt.Printf("Found base element: %s\n", current.element)
+			// Now we need to build a path from root to this base element
+			pathTree := constructPathTree(current, visited, recipesForItem)
+			if pathTree != nil {
+				fmt.Printf("Successfully constructed a path tree to base element %s. Returning.\n", current.element)
+				return pathTree
+			} else {
+				fmt.Printf("Path construction failed for base element %s.\n", current.element)
+				// Continue the search to find another path
+			}
+		}
 
-			for _, ingredient := range pair {
-				cntNode++
-				if !visitedBFS[ingredient] {
-					visitedBFS[ingredient] = true
-					queue = append(queue, ingredient)
+		// Process all combinations (ingredients)
+		for _, recipe := range current.combinations {
+			children := []*Nodebidir{recipe.ingredient1, recipe.ingredient2}
+			for _, child := range children {
+				if child == nil || child.isCycleNode {
+					continue
+				}
+				if _, found := visited[child]; !found {
+					fmt.Printf("Enqueueing child %s from %s\n", child.element, current.element)
+					q.PushBack(child)
+					visited[child] = current
+					depth[child] = depth[current] + 1
 				}
 			}
 		}
 	}
 
-	for el, ingredients := range pendingNodes {
-		left := nodeMap[ingredients[0]]
-		right := nodeMap[ingredients[1]]
+	fmt.Println("--- BFS Search Ended: No constructible non-cyclic path found ---")
+	return nil
+}
 
-		nodeMap[el].combinations = []Recipe{
-			{
-				ingredient1: left,
-				ingredient2: right,
-			},
-		}
-
-		memoSB[el] = nodeMap[el]
+// Constructs a path tree from the target node to the root
+func constructPathTree(targetNode *Nodebidir, visited map[*Nodebidir]*Nodebidir, recipeData map[string][][]string) *Nodebidir {
+	// First, trace path from target to root
+	path := []*Nodebidir{}
+	curr := targetNode
+	for curr != nil {
+		path = append([]*Nodebidir{curr}, path...) // Add to front
+		curr = visited[curr]
 	}
 
-	return nodeMap[element], cntNode
+	fmt.Println("\n--- Path Found ---")
+	fmt.Print("Path: ")
+	for i, node := range path {
+		fmt.Print(node.element)
+		if i < len(path)-1 {
+			fmt.Print(" -> ")
+		}
+	}
+	fmt.Println()
+
+	// Now build a new tree representing just this path
+	return buildShortestPathTree(path, recipeData)
+}
+
+// Function to use bfsOne in main
+func mainWithBFS(recipeData map[string][][]string) {
+	targetElement := "Ozone" // Example target element
+	// Build tree from data
+	fullTree := buildTreeBFS(targetElement, recipeData)
+
+	// Print the full tree
+	fmt.Println("\nFull Recipe Derivation Tree:")
+	printTreeBidir(fullTree)
+
+	// Perform standard BFS search
+	pathTree := bfsOne(fullTree, recipeData)
+
+	if pathTree != nil {
+		fmt.Println("\nPath Tree from BFS:")
+		printShortestPathTree(pathTree, "", true)
+	} else {
+		fmt.Println("Could not find a valid path without cycles.")
+	}
+
+	fmt.Println("\n" + strings.Repeat("=", 40)) // Separator
 }
 
 /*** MULTIPLE RECIPE BFS ***/

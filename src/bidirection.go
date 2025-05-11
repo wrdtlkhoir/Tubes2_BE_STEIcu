@@ -756,10 +756,10 @@ func main() {
 
 	// Cara 1: Jalankan mainWithMultiplePaths langsung dengan data yang sudah dimuat
 	// Jumlah path yang ingin dicari
-	numPaths := 3
+	// numPaths := 3
 
 	// Pilih target item yang ingin dicari
-	targetItemName := "Sun" // Ganti sesuai dengan target yang diinginkan
+	targetItemName := "Ozone" // Ganti sesuai dengan target yang diinginkan
 
 	recipesForTargetItem, found := allRecipeData.Recipes[targetItemName]
 	if !found {
@@ -773,7 +773,7 @@ func main() {
 	}
 
 	// Jalankan fungsi mainWithMultiplePaths dengan data dan jumlah path yang diinginkan
-	mainWithMultiplePaths(recipesForTargetItem, numPaths)
+	mainWithBFS(recipesForTargetItem)
 
 	fmt.Println("\n" + strings.Repeat("=", 40))
 }
