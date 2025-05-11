@@ -8,8 +8,8 @@ type Recipe struct {
 }
 
 type Node struct {
-	element string
-	combinations [] Recipe
+	element      string
+	combinations []Recipe
 }
 
 type Tree struct {
@@ -21,7 +21,7 @@ func isBase(element string) bool {
 	return (element == "Air" || element == "Earth" || element == "Fire" || element == "Water")
 }
 
-// check if a node is a leaf 
+// check if a node is a leaf
 func isLeaf(node *Node) bool {
 	return len(node.combinations) == 0
 }
@@ -45,7 +45,6 @@ func isNodeUsedAsIngredient(target string, parent *Node) bool {
 	return false
 }
 
-
 // build tree dari data recipe
 var visited map[string]bool
 
@@ -59,10 +58,10 @@ func buildTree(target string, element string, recipeData map[string][][]string, 
 	recipes := recipeData[element]
 
 	for _, combination := range recipes {
-		ing1 := buildTree(target, combination[0], recipeData, cntNode + 1)
-		ing2 := buildTree(target, combination[1], recipeData, cntNode + 1)
+		ing1 := buildTree(target, combination[0], recipeData, cntNode+1)
+		ing2 := buildTree(target, combination[1], recipeData, cntNode+1)
 
-		recipe := Recipe {
+		recipe := Recipe{
 			ingredient1: ing1,
 			ingredient2: ing2,
 		}
