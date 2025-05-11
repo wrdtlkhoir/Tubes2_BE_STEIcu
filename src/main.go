@@ -183,7 +183,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 			if maxRecipes <= 0 {
 				maxRecipes = 1 // Default value
 			}
-			trees, nodeVisited = searchBFSMultiple(req.Target, maxRecipes)
+			// trees, nodeVisited = searchBFSMultiple(req.Target, maxRecipes)
 			var treeNodes []*TreeNode
 			for _, tree := range trees {
 				treeNode := convertToTreeNode(tree.root)

@@ -759,7 +759,7 @@ func main() {
 	// numPaths := 3
 
 	// Pilih target item yang ingin dicari
-	targetItemName := "Ozone" // Ganti sesuai dengan target yang diinginkan
+	targetItemName := "Human" // Ganti sesuai dengan target yang diinginkan
 
 	recipesForTargetItem, found := allRecipeData.Recipes[targetItemName]
 	if !found {
