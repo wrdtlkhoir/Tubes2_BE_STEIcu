@@ -289,28 +289,28 @@ func copyVisitedMap(original map[string]bool) map[string]bool {
 }
 
 
-func main() {
-	loadRecipes("recipes.json")
-	target := "Mud"
-	numOfRecipe := 5
+// func main() {
+// 	loadRecipes("recipes.json")
+// 	target := "Mud"
+// 	numOfRecipe := 5
 
-	// ini buat debug result aja
-	// tree := InitTree(target, recipeData.Recipes[target])
-	// printTree(tree)
+// 	// ini buat debug result aja
+// 	// tree := InitTree(target, recipeData.Recipes[target])
+// 	// printTree(tree)
 
-	// Try Single Recipe
-	result, nodes := searchDFSOne(target)
-	printTree(result)
-	if result.root == nil {
-		fmt.Println("root is nil")
-	}
-	fmt.Printf("Number of visited nodes: %d\n", nodes)
+// 	// Try Single Recipe
+// 	result, nodes := searchDFSOne(target)
+// 	printTree(result)
+// 	if result.root == nil {
+// 		fmt.Println("root is nil")
+// 	}
+// 	fmt.Printf("Number of visited nodes: %d\n", nodes)
 
-	// Try multiple Recipe
-	result2, nodes2 := searchDFSMultiple(target, numOfRecipe)
-	for _, recipe := range result2 {
-		printTree(recipe)
-	}
-	fmt.Printf("Number of visited nodes: %d\n", nodes2)
-}
+// 	// Try multiple Recipe
+// 	result2, nodes2 := searchDFSMultiple(target, numOfRecipe)
+// 	for _, recipe := range result2 {
+// 		printTree(recipe)
+// 	}
+// 	fmt.Printf("Number of visited nodes: %d\n", nodes2)
+// }
 
