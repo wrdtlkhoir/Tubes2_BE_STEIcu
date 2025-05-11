@@ -72,6 +72,31 @@ func convertToTreeNode(n *Node) *TreeNode {
 	return node
 }
 
+func convertToTreeNode2(n *Nodebidir) *TreeNode {
+	if n == nil {
+		return nil
+	}
+
+	node := &TreeNode{
+		Name:     n.element,
+		Children: []*TreeNode{},
+	}
+
+	for _, recipe := range n.combinations {
+		child1 := convertToTreeNode2(recipe.ingredient1)
+		child2 := convertToTreeNode2(recipe.ingredient2)
+
+		if child1 != nil {
+			node.Children = append(node.Children, child1)
+		}
+		if child2 != nil {
+			node.Children = append(node.Children, child2)
+		}
+	}
+
+	return node
+}
+
 func searchHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Received search request")
 
@@ -126,8 +151,8 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 			// Debug: Print the tree structure
 			printTree(tree)
 		} else {
-			// tree, node = searchBFSOne(req.Target)
-			treeNode := convertToTreeNode(tree.root)
+			tree := searchBFSOne(req.Target)
+			treeNode := convertToTreeNode2(tree)
 			executionTime := time.Since(startTime).Milliseconds()
 			resp = SearchResponse{
 				Trees:         []*TreeNode{treeNode},
@@ -135,8 +160,6 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 				NodesVisited:  node,
 			}
 
-			// Debug: Print the tree structure
-			printTree(tree)
 		}
 	} else { // multiple
 		var trees []*Tree
@@ -183,14 +206,14 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 			if maxRecipes <= 0 {
 				maxRecipes = 1 // Default value
 			}
-			// trees, nodeVisited = searchBFSMultiple(req.Target, maxRecipes)
+			trees := searchBFSMultiple(req.Target, maxRecipes)
 			var treeNodes []*TreeNode
 			for _, tree := range trees {
-				treeNode := convertToTreeNode(tree.root)
+				treeNode := convertToTreeNode2(tree)
 				treeNodes = append(treeNodes, treeNode)
 
 				// Debug: Print each tree structure
-				printTree(tree)
+				// printTree(tree)
 			}
 
 			executionTime := time.Since(startTime).Milliseconds()
@@ -229,28 +252,28 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(respData)
 }
 
-// func main() {
-// 	// First scrape the recipes
-// 	var err error
-// 	recipeData, err = ScrapeInitialRecipes()
-// 	if err != nil {
-// 		log.Fatalf("Error scraping recipes: %v", err)
-// 	}
+func main() {
+	// First scrape the recipes
+	var err error
+	recipeData, err = ScrapeRecipes()
+	if err != nil {
+		log.Fatalf("Error scraping recipes: %v", err)
+	}
 
-// 	// Save them to file
-// 	err = SaveRecipesToJson(recipeData, "initial_recipes.json")
-// 	if err != nil {
-// 		log.Fatalf("Error saving recipes to JSON: %v", err)
-// 	}
+	// Save them to file
+	err = SaveRecipesToJson(recipeData, "recipes.json")
+	if err != nil {
+		log.Fatalf("Error saving recipes to JSON: %v", err)
+	}
 
-// 	http.HandleFunc("/api/search", searchHandler)
-// 	// http.HandleFunc("/api/tree", treeHandler) // Tambahkan endpoint baru
+	http.HandleFunc("/api/search", searchHandler)
+	// http.HandleFunc("/api/tree", treeHandler) // Tambahkan endpoint baru
 
-// 	port := os.Getenv("PORT")
-// 	if port == "" {
-// 		port = "8080"
-// 	}
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
 
-// 	log.Printf("Server running on port %s\n", port)
-// 	log.Fatal(http.ListenAndServe(":"+port, nil))
-// }
+	log.Printf("Server running on port %s\n", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
+}

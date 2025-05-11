@@ -3,6 +3,7 @@ package main
 import (
 	"container/list"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 )
@@ -135,6 +136,99 @@ func mainWithBFS(recipeData map[string][][]string) {
 	}
 
 	fmt.Println("\n" + strings.Repeat("=", 40)) // Separator
+}
+
+func searchBFSOne(target string) *Nodebidir {
+	var allRecipeData OutputData
+
+	log.Println("Loading recipe data from recipes.json...")
+	loadedData, err := LoadOutputDataFromJson("recipes.json") // Ensure this file path is correct
+	if err != nil {
+		log.Fatalf("Error loading recipe data from JSON: %v", err)
+	}
+	allRecipeData = loadedData
+	log.Println("Recipe data loaded successfully.")
+
+	if allRecipeData.Recipes == nil {
+		log.Fatalln("Recipe data is empty after loading. Cannot proceed.")
+	}
+
+	recipesForTargetItem, found := allRecipeData.Recipes[target]
+	if !found {
+		log.Printf("No recipes found for target item '%s' in allRecipeData.Recipes\n", target)
+		available := []string{}
+		for k := range allRecipeData.Recipes {
+			available = append(available, k)
+		}
+		log.Printf("Available items in loaded data: %v", available)
+	}
+	fullTree := buildTreeBFS(target, recipesForTargetItem)
+
+	fmt.Println("\nFull Recipe Derivation Tree:")
+	printTreeBidir(fullTree)
+
+	// Perform standard BFS search
+	pathTree := bfsOne(fullTree, recipesForTargetItem)
+
+	if pathTree != nil {
+		fmt.Println("\nPath Tree from BFS:")
+		printShortestPathTree(pathTree, "", true)
+	} else {
+		fmt.Println("Could not find a valid path without cycles.")
+	}
+
+	fmt.Println("\n" + strings.Repeat("=", 40)) // Separator
+
+	return pathTree
+}
+
+func searchBFSMultiple(target string, num int) []*Nodebidir {
+	var allRecipeData OutputData
+
+	log.Println("Loading recipe data from recipes.json...")
+	loadedData, err := LoadOutputDataFromJson("recipes.json") // Ensure this file path is correct
+	if err != nil {
+		log.Fatalf("Error loading recipe data from JSON: %v", err)
+	}
+	allRecipeData = loadedData
+	log.Println("Recipe data loaded successfully.")
+
+	if allRecipeData.Recipes == nil {
+		log.Fatalln("Recipe data is empty after loading. Cannot proceed.")
+	}
+
+	recipesForTargetItem, found := allRecipeData.Recipes[target]
+	if !found {
+		log.Printf("No recipes found for target item '%s' in allRecipeData.Recipes\n", target)
+		available := []string{}
+		for k := range allRecipeData.Recipes {
+			available = append(available, k)
+		}
+		log.Printf("Available items in loaded data: %v", available)
+	}
+	fullTree := buildTreeBFS(target, recipesForTargetItem)
+
+	fmt.Println("\nFull Recipe Derivation Tree:")
+	printTreeBidir(fullTree)
+
+	// Perform standard BFS search
+	pathTree := multipleBfs(fullTree, num)
+
+	if pathTree != nil {
+		fmt.Println("\nPath Tree from BFS:")
+		fmt.Printf("\nFound %d paths:\n", len(pathTree))
+		for i, path := range pathTree {
+			fmt.Printf("\nPath %d:\n", i+1)
+			printShortestPathTree(path, "", true)
+		}
+
+	} else {
+		fmt.Println("Could not find a valid path without cycles.")
+	}
+
+	fmt.Println("\n" + strings.Repeat("=", 40)) // Separator
+
+	return pathTree
 }
 
 func multipleBfs(tree *Treebidir, numPaths int) []*Nodebidir {
