@@ -97,12 +97,15 @@ func serializeTree(node *Node) string {
 }
 
 func searchDFSMultiple(target string, numOfPath int) ([]*Tree, []int) {
-	fmt.Println("Starting multi-threaded DFS search for", target)
+	fmt.Println("start multiple")
 	mainDataMul = recipeData.Recipes[target]
 	
-	if numOfPath <= 0 || numOfPath > 10 {
-		numOfPath = 5
-	}
+	tree := InitTree(target, recipeData.Recipes[target])
+	printTree(tree)
+	
+	// if numOfPath <= 0 || numOfPath > 10 {
+	// 	numOfPath = 5
+	// }
 	
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -123,7 +126,7 @@ func searchDFSMultiple(target string, numOfPath int) ([]*Tree, []int) {
 			continue
 		}
 		if pair[0] == target || pair[1] == target {
-			fmt.Printf("Loop detected: %s\n", target)
+			fmt.Printf("loop detected: %s\n", target)
 			continue
 		}
 		
@@ -206,12 +209,12 @@ func searchDFSMultiple(target string, numOfPath int) ([]*Tree, []int) {
 		pathElementCounts = append(pathElementCounts, getPathElementCount(rootNode))
 	}
 	
-	fmt.Printf("Found %d unique recipe paths\n", len(trees))
+	fmt.Printf("found %d unique recipe paths\n", len(trees))
 	return trees, pathElementCounts
 }
 
 func dfsSubTree(ctx context.Context, element string, currentRecipeMap map[string][][]string, currentPath map[string]bool, depth int) []*Node {
-
+	// fmt.Println(element)
 	select {
 	case <-ctx.Done():
 		return []*Node{} 
@@ -251,7 +254,6 @@ func dfsSubTree(ctx context.Context, element string, currentRecipeMap map[string
 			go func(ingredients []string) {
 				defer wg.Done()
 				
-				// Check timeouts
 				select {
 				case <-ctx.Done():
 					return
@@ -394,20 +396,20 @@ func copyVisitedMap(original map[string]bool) map[string]bool {
 
 // func main() {
 // 	loadRecipes("recipes.json")
-// 	target := "Zombie"
-// 	numOfRecipe := 3
+// 	target := "Flower"
+// 	numOfRecipe := 2
 
 // 	// ini buat debug result aja
-// 	// tree := InitTree(target, recipeData.Recipes[target])
-// 	// printTree(tree)
+// 	tree := InitTree(target, recipeData.Recipes[target])
+// 	printTree(tree)
 
 // 	// Try Single Recipe
-// 	result, nodes := searchDFSOne(target)
-// 	printTree(result)
-// 	if result.root == nil {
-// 		fmt.Println("root is nil")
-// 	}
-// 	fmt.Printf("Number of visited nodes: %d\n", nodes)
+// 	// result, nodes := searchDFSOne(target)
+// 	// printTree(result)
+// 	// if result.root == nil {
+// 	// 	fmt.Println("root is nil")
+// 	// }
+// 	// fmt.Printf("Number of visited nodes: %d\n", nodes)
 
 // 	// Try multiple Recipe
 // 	result2, nodes2 := searchDFSMultiple(target, numOfRecipe)
