@@ -314,6 +314,22 @@ func main() {
 
 	http.HandleFunc("/api/search", searchHandler)
 	// http.HandleFunc("/api/tree", treeHandler) // Tambahkan endpoint baru
+    // Di main.go, tambahkan di func main():
+    http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+        if r.URL.Path != "/" {
+            http.NotFound(w, r)
+            return
+        }
+        w.Header().Set("Content-Type", "text/plain")
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        w.Write([]byte("Recipe Finder API is running!"))
+    })
+
+    http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "application/json")
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        w.Write([]byte(`{"status":"ok","message":"API is healthy"}`))
+    })
 
 	port := os.Getenv("PORT")
 	if port == "" {
