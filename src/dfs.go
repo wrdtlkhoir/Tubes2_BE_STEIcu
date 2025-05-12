@@ -100,13 +100,6 @@ func searchDFSMultiple(target string, numOfPath int) ([]*Tree, []int) {
 	fmt.Println("start multiple")
 	mainDataMul = recipeData.Recipes[target]
 	
-	tree := InitTree(target, recipeData.Recipes[target])
-	printTree(tree)
-	
-	// if numOfPath <= 0 || numOfPath > 10 {
-	// 	numOfPath = 5
-	// }
-	
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	
@@ -396,7 +389,7 @@ func copyVisitedMap(original map[string]bool) map[string]bool {
 
 // func main() {
 // 	loadRecipes("recipes.json")
-// 	target := "Flower"
+// 	target := "Librarian"
 // 	numOfRecipe := 2
 
 // 	// ini buat debug result aja
