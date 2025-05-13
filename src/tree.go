@@ -21,30 +21,6 @@ func isBase(element string) bool {
 	return (element == "Air" || element == "Earth" || element == "Fire" || element == "Water")
 }
 
-// check if a node is a leaf
-func isLeaf(node *Node) bool {
-	return len(node.combinations) == 0
-}
-
-func isNodeUsedAsIngredient(target string, parent *Node) bool {
-	if parent == nil {
-		return false
-	}
-	for _, recipe := range parent.combinations {
-		if recipe.ingredient1 != nil && recipe.ingredient1.element == target {
-			return true
-		}
-		if recipe.ingredient2 != nil && recipe.ingredient2.element == target {
-			return true
-		}
-		// recursively check children
-		if isNodeUsedAsIngredient(target, recipe.ingredient1) || isNodeUsedAsIngredient(target, recipe.ingredient2) {
-			return true
-		}
-	}
-	return false
-}
-
 // build tree dari data recipe
 var visited map[string]bool
 
