@@ -20,6 +20,7 @@ type PathResult struct {
 	desc             string
 	actualTargetLeaf *Nodebidir
 	pathSignature    string
+	exploredNodes    int
 }
 
 func isPathCyclic(node *Nodebidir) bool {
@@ -63,20 +64,22 @@ func isPathCyclic(node *Nodebidir) bool {
 	return false
 }
 
-func findMultipleBidirectionalPaths(tree *Treebidir, numPaths int) []*Nodebidir {
+func findMultipleBidirectionalPaths(tree *Treebidir, numPaths int) ([]*Nodebidir, int) {
+	totalExploredNodesOverall := 0 // Akumulator untuk semua node yang dieksplor di semua pencarian
+
 	if tree == nil || tree.root == nil {
 		fmt.Println("Tree is empty")
-		return nil
+		return nil, totalExploredNodesOverall
 	}
-
 	if tree.root.isCycleNode {
 		fmt.Println("Root is a cycle node")
-		return nil
+		return nil, totalExploredNodesOverall
 	}
 
 	baseLeaves := findBaseLeaves(tree.root, []*Nodebidir{})
 	if len(baseLeaves) == 0 {
-		return nil
+		fmt.Println("No base leaves found")
+		return nil, totalExploredNodesOverall
 	}
 
 	var validLeaves []*Nodebidir
@@ -87,73 +90,104 @@ func findMultipleBidirectionalPaths(tree *Treebidir, numPaths int) []*Nodebidir 
 	}
 
 	if len(validLeaves) == 0 {
-		return nil
+		fmt.Println("No valid (non-cyclic) base leaves found")
+		return nil, totalExploredNodesOverall
 	}
 
-	resultChan := make(chan PathResult, numPaths*2)
+	// Perbesar buffer channel jika banyak leaf dan numPaths kecil,
+	// agar goroutine tidak block saat mengirim PathResult jika resultChan penuh
+	// sebelum consumer sempat mengambil. Max(numPaths*2, len(validLeaves)) bisa jadi pilihan.
+	resultChan := make(chan PathResult, len(validLeaves))
 	var wg sync.WaitGroup
-	var resultsMutex sync.Mutex
+	var resultsMutex sync.Mutex // Melindungi foundPaths, numFoundPaths, pathSignatures
 	var foundPaths []*Nodebidir
 	var numFoundPaths int
 
 	pathSignatures := make(map[string]bool)
+
 	for i, singleBaseLeaf := range validLeaves {
+		// Jika ingin membatasi jumlah goroutine yang berjalan sekaligus,
+		// bisa menggunakan semaphore channel di sini.
+		// Untuk sekarang, kita jalankan untuk semua validLeaves.
+
 		wg.Add(1)
 		go func(leafIndex int, currentTargetLeaf *Nodebidir) {
 			defer wg.Done()
 
+			// Cek apakah kita masih perlu mencari jalur baru
 			resultsMutex.Lock()
-			shouldContinue := numFoundPaths < numPaths
+			shouldSearch := numFoundPaths < numPaths
 			resultsMutex.Unlock()
 
-			if !shouldContinue {
-				return
-			}
-			if currentTargetLeaf.isCycleNode {
+			if !shouldSearch {
+				// Kirim hasil dengan exploredNodes = 0 jika tidak melakukan search
+				resultChan <- PathResult{exploredNodes: 0}
 				return
 			}
 
-			path, score, desc, actualLeafFound := bidirectionalSearchFromLeaf(tree.root, []*Nodebidir{currentTargetLeaf})
+			if currentTargetLeaf.isCycleNode { // Sebenarnya sudah difilter di validLeaves
+				resultChan <- PathResult{exploredNodes: 0}
+				return
+			}
+
+			// Jalankan pencarian untuk leaf ini
+			path, score, desc, actualLeafFound, exploredForThisSearch := bidirectionalSearchFromLeaf(tree.root, []*Nodebidir{currentTargetLeaf})
+
+			pathSignature := ""
 			if path != nil && !isPathCyclic(path) {
-				pathSignature := generatePathSignature(path)
+				pathSignature = generatePathSignature(path)
+			} else {
+				path = nil // Pastikan path nil jika siklik atau tidak ditemukan
+			}
 
-				resultChan <- PathResult{
-					path:             path,
-					score:            score,
-					desc:             desc,
-					actualTargetLeaf: actualLeafFound,
-					pathSignature:    pathSignature,
-				}
+			resultChan <- PathResult{
+				path:             path,
+				score:            score,
+				desc:             desc,
+				actualTargetLeaf: actualLeafFound,
+				pathSignature:    pathSignature,
+				exploredNodes:    exploredForThisSearch, // Sertakan jumlah node dieksplor
 			}
 		}(i, singleBaseLeaf)
 	}
 
+	// Goroutine untuk menutup channel setelah semua pencarian selesai
 	go func() {
 		wg.Wait()
 		close(resultChan)
 	}()
 
+	// Kumpulkan hasil dari channel
 	for result := range resultChan {
-		resultsMutex.Lock()
+		totalExploredNodesOverall += result.exploredNodes // Akumulasi total node dieksplor dari setiap pencarian
 
-		if isPathCyclic(result.path) {
-			resultsMutex.Unlock()
+		if result.path == nil || result.pathSignature == "" { // Jika path nil atau signature kosong (karena path nil/siklik)
 			continue
 		}
+
+		resultsMutex.Lock()
+		// Cek lagi karena kondisi numFoundPaths bisa berubah oleh goroutine lain yang masuk ke channel lebih dulu
 		if numFoundPaths < numPaths && !pathSignatures[result.pathSignature] {
+			// isPathCyclic sudah dicek di goroutine, tapi bisa dicek lagi di sini jika paranoid
+			// if isPathCyclic(result.path) {
+			// 	resultsMutex.Unlock()
+			// 	continue
+			// }
 			foundPaths = append(foundPaths, result.path)
 			numFoundPaths++
 			pathSignatures[result.pathSignature] = true
+			// fmt.Printf("Path %d found (score %d), target leaf %s. Explored by this search: %d\n", numFoundPaths, result.score, result.actualTargetLeaf.element, result.exploredNodes)
 		}
 		resultsMutex.Unlock()
 
-		if numFoundPaths >= numPaths {
-			break
-		}
+		// Jika sudah cukup path, kita bisa berhenti lebih awal,
+		// tapi kita tetap perlu mengosongkan channel untuk menghitung semua exploredNodes
+		// dan agar goroutine wg.Wait() tidak deadlock.
+		// Loop ini akan berhenti ketika channel ditutup.
 	}
-	return foundPaths
-}
 
+	return foundPaths, totalExploredNodesOverall
+}
 
 func generatePathSignature(node *Nodebidir) string {
 	if node == nil {
@@ -185,7 +219,9 @@ func generatePathSignature(node *Nodebidir) string {
 	return strings.Join(result, "|")
 }
 
-func bidirectionalSearchFromLeaf(root *Nodebidir, targetBaseLeaves []*Nodebidir) (*Nodebidir, int, string, *Nodebidir) {
+func bidirectionalSearchFromLeaf(root *Nodebidir, targetBaseLeaves []*Nodebidir) (*Nodebidir, int, string, *Nodebidir, int) {
+	exploredNodesCount := 0 // Inisialisasi penghitung
+
 	type MeetingPoint struct {
 		node             *Nodebidir
 		forwardDepth     int
@@ -194,15 +230,13 @@ func bidirectionalSearchFromLeaf(root *Nodebidir, targetBaseLeaves []*Nodebidir)
 	}
 
 	if root == nil {
-		return nil, -1, "", nil
+		return nil, -1, "", nil, exploredNodesCount
 	}
-
 	if len(targetBaseLeaves) == 0 {
-		return nil, -1, "", nil
+		return nil, -1, "", nil, exploredNodesCount
 	}
-
-	if root.isCycleNode {
-		return nil, -1, "", nil
+	if root.isCycleNode { // Cek root node siklus
+		return nil, -1, "", nil, exploredNodesCount
 	}
 
 	q_f := list.New()
@@ -211,6 +245,7 @@ func bidirectionalSearchFromLeaf(root *Nodebidir, targetBaseLeaves []*Nodebidir)
 	visited_f[root] = nil
 	forwardDepth := make(map[*Nodebidir]int)
 	forwardDepth[root] = 0
+	// root akan dihitung saat di-pop
 
 	q_b := list.New()
 	visited_b := make(map[*Nodebidir]*Nodebidir)
@@ -225,22 +260,25 @@ func bidirectionalSearchFromLeaf(root *Nodebidir, targetBaseLeaves []*Nodebidir)
 		q_b.PushBack(leaf)
 		visited_b[leaf] = nil
 		backwardDepth[leaf] = 0
-		baseLeafSource[leaf] = leaf
+		baseLeafSource[leaf] = leaf // Melacak leaf asli untuk setiap node di pencarian mundur
 		validTargetsFound = true
+		// leaf akan dihitung saat di-pop
 	}
 
 	if !validTargetsFound {
-		return nil, -1, "", nil
+		return nil, -1, "", nil, exploredNodesCount
 	}
 
 	var meetingPoints []MeetingPoint
 
 	for q_f.Len() > 0 && q_b.Len() > 0 {
-		currLevelSize_f := q_f.Len()
-		for i := 0; i < currLevelSize_f; i++ {
+		// Forward search step
+		if q_f.Len() > 0 { // Perlu dicek lagi karena q_b mungkin jadi kosong di iterasi sebelumnya
 			frontElement_f := q_f.Front()
 			curr_f_instance := frontElement_f.Value.(*Nodebidir)
 			q_f.Remove(frontElement_f)
+			exploredNodesCount++ // Hitung
+
 			if curr_f_instance.isCycleNode {
 				continue
 			}
@@ -280,11 +318,14 @@ func bidirectionalSearchFromLeaf(root *Nodebidir, targetBaseLeaves []*Nodebidir)
 				}
 			}
 		}
-		currLevelSize_b := q_b.Len()
-		for i := 0; i < currLevelSize_b; i++ {
+
+		// Backward search step
+		if q_b.Len() > 0 { // Perlu dicek lagi karena q_f mungkin jadi kosong
 			frontElement_b := q_b.Front()
 			curr_b_instance := frontElement_b.Value.(*Nodebidir)
 			q_b.Remove(frontElement_b)
+			exploredNodesCount++ // Hitung
+
 			if curr_b_instance.isCycleNode {
 				continue
 			}
@@ -301,7 +342,6 @@ func bidirectionalSearchFromLeaf(root *Nodebidir, targetBaseLeaves []*Nodebidir)
 			}
 
 			parent_instance := curr_b_instance.parent
-			// Skip nil or cyclic parent nodes entirely
 			if parent_instance == nil || parent_instance.isCycleNode {
 				continue
 			}
@@ -309,7 +349,7 @@ func bidirectionalSearchFromLeaf(root *Nodebidir, targetBaseLeaves []*Nodebidir)
 				q_b.PushBack(parent_instance)
 				visited_b[parent_instance] = curr_b_instance
 				backwardDepth[parent_instance] = backwardDepth[curr_b_instance] + 1
-				if sourceLeaf, ok := baseLeafSource[curr_b_instance]; ok { // Propagate source
+				if sourceLeaf, ok := baseLeafSource[curr_b_instance]; ok {
 					baseLeafSource[parent_instance] = sourceLeaf
 					if fwdDepth, f_found := forwardDepth[parent_instance]; f_found {
 						meetingPoints = append(meetingPoints, MeetingPoint{
@@ -323,13 +363,15 @@ func bidirectionalSearchFromLeaf(root *Nodebidir, targetBaseLeaves []*Nodebidir)
 			}
 		}
 
+		// Jika ada meeting point ditemukan di level ini, kita bisa berhenti untuk mencari jalur terpendek.
+		// Algoritma BFS dua arah standar biasanya berhenti di sini untuk menjamin jalur terpendek pertama.
 		if len(meetingPoints) > 0 {
 			break
 		}
 	}
 
 	if len(meetingPoints) == 0 {
-		return nil, -1, "", nil
+		return nil, -1, "", nil, exploredNodesCount
 	}
 
 	var bestMeetingPointData MeetingPoint
@@ -343,33 +385,46 @@ func bidirectionalSearchFromLeaf(root *Nodebidir, targetBaseLeaves []*Nodebidir)
 			bestMeetingPointData = mp
 			foundBest = true
 		} else if totalDepth == bestTotalDepth {
-			if bestMeetingPointData.actualTargetLeaf != nil && mp.actualTargetLeaf != nil && // Ensure not nil
-				mp.backwardDepth < bestMeetingPointData.backwardDepth {
-				bestMeetingPointData = mp
+			// Tie-breaking: prefer path with shorter backward search (closer to the target leaf)
+			// atau kriteria lain jika ada
+			if bestMeetingPointData.actualTargetLeaf != nil && mp.actualTargetLeaf != nil {
+				if mp.backwardDepth < bestMeetingPointData.backwardDepth {
+					bestMeetingPointData = mp
+				}
 			}
 		}
 	}
 
-	if !foundBest || bestMeetingPointData.actualTargetLeaf == nil {
-		return nil, -1, "", nil
+	if !foundBest || bestMeetingPointData.actualTargetLeaf == nil { // Harus ada actualTargetLeaf yang valid
+		return nil, -1, "", nil, exploredNodesCount
 	}
 
-		pathDesc := fmt.Sprintf("Path to %s (total depth: %d)",
-		bestMeetingPointData.actualTargetLeaf.element, bestTotalDepth)
+	pathDesc := fmt.Sprintf("Path to %s (total depth: %d, fwd: %d, bwd: %d)",
+		bestMeetingPointData.actualTargetLeaf.element, bestTotalDepth, bestMeetingPointData.forwardDepth, bestMeetingPointData.backwardDepth)
 
-	recipesMapConverted := map[string][][]string(recipeDatas.Recipes)
+	// Menggunakan variabel global `recipeDatas`
+	// Pastikan `recipeDatas.Recipes` adalah `map[string][][]string`
+	// atau sesuaikan cara Anda mendapatkan `recipesMapConverted`
+	var recipesMapConverted map[string][][]string
+	if recipeDatas.Recipes != nil {
+		recipesMapConverted = recipeDatas.Recipes
+	} else {
+		recipesMapConverted = make(map[string][][]string) // Fallback jika nil
+	}
+
 	resultTree := constructShortestPathTree(bestMeetingPointData.node, visited_f, visited_b, recipesMapConverted)
+
 	if isPathCyclic(resultTree) {
-		return nil, -1, "", nil
+		return nil, -1, "Cyclic path constructed", nil, exploredNodesCount
 	}
 
-	return resultTree, bestTotalDepth, pathDesc, bestMeetingPointData.actualTargetLeaf
+	return resultTree, bestTotalDepth, pathDesc, bestMeetingPointData.actualTargetLeaf, exploredNodesCount
 }
 
-func searchBidirectionMultiple(target string, num int) []*Nodebidir {
+func searchBidirectionMultiple(target string, num int) ([]*Nodebidir, int) {
 	fullTree := buildTreeBFS(target, recipeData.Recipes[target])
 
-	pathTree := multipleBfsForBidir(fullTree, num)
+	pathTree, numPaths := findMultipleBidirectionalPaths(fullTree, num)
 
 	if pathTree != nil {
 		fmt.Println("\nPath Tree from BFS:")
@@ -382,5 +437,5 @@ func searchBidirectionMultiple(target string, num int) []*Nodebidir {
 	} else {
 		fmt.Println("no valid path")
 	}
-	return pathTree
+	return pathTree, numPaths
 }

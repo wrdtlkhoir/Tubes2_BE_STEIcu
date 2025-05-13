@@ -49,14 +49,16 @@ func findBaseLeaves(node *Nodebidir, baseLeaves []*Nodebidir) []*Nodebidir {
 	return baseLeaves
 }
 
-func bidirectionalSearchTree(tree *Treebidir, recipesForItem map[string][][]string) *Nodebidir {
+func bidirectionalSearchTree(tree *Treebidir, recipesForItem map[string][][]string) (*Nodebidir, int) {
+	exploredNodeCount := 0 // Inisialisasi penghitung node yang dieksplorasi
+
 	if tree == nil || tree.root == nil {
 		fmt.Println("Tree is empty")
-		return nil
+		return nil, exploredNodeCount
 	}
 	if tree.root.isCycleNode {
 		fmt.Println("Root is a cycle node")
-		return nil
+		return nil, exploredNodeCount
 	}
 
 	q_f := list.New()
@@ -64,6 +66,7 @@ func bidirectionalSearchTree(tree *Treebidir, recipesForItem map[string][][]stri
 	root_f := tree.root
 	q_f.PushBack(root_f)
 	visited_f[root_f] = nil
+	// Node pertama (root) akan dihitung saat di-pop dari q_f
 
 	baseLeaves := findBaseLeaves(tree.root, []*Nodebidir{})
 	q_b := list.New()
@@ -71,16 +74,17 @@ func bidirectionalSearchTree(tree *Treebidir, recipesForItem map[string][][]stri
 
 	if len(baseLeaves) == 0 {
 		fmt.Println("No base leaves found, cannot perform backward search.")
-		return nil
+		return nil, exploredNodeCount
 	}
 	for _, baseLeaf := range baseLeaves {
 		q_b.PushBack(baseLeaf)
 		visited_b[baseLeaf] = nil
+		// Node baseLeaf akan dihitung saat di-pop dari q_b
 	}
 
 	forwardDepth := make(map[*Nodebidir]int)
 	backwardDepth := make(map[*Nodebidir]int)
-	baseLeafSource := make(map[*Nodebidir]*Nodebidir)
+	baseLeafSource := make(map[*Nodebidir]*Nodebidir) // Untuk melacak asal baseLeaf dari node di pencarian mundur
 
 	forwardDepth[root_f] = 0
 	for _, leaf := range baseLeaves {
@@ -89,21 +93,26 @@ func bidirectionalSearchTree(tree *Treebidir, recipesForItem map[string][][]stri
 	}
 
 	for q_f.Len() > 0 && q_b.Len() > 0 {
+		// Forward search step
 		if q_f.Len() > 0 {
 			frontElement_f := q_f.Front()
 			curr_f_instance := frontElement_f.Value.(*Nodebidir)
 			q_f.Remove(frontElement_f)
+			exploredNodeCount++ // Hitung node yang dieksplorasi dari antrian maju
 
 			if curr_f_instance.isCycleNode {
 				continue
 			}
 
+			// Check if met by backward search
 			if _, found := backwardDepth[curr_f_instance]; found {
 				pathTree := constructShortestPathTree(curr_f_instance, visited_f, visited_b, recipesForItem)
 				if pathTree != nil {
-					return pathTree
-				} else {
+					return pathTree, exploredNodeCount
 				}
+				// Jika constructShortestPathTree mengembalikan nil, mungkin ada masalah atau jalur tidak valid,
+				// pencarian bisa dilanjutkan atau dihentikan tergantung logika yang diinginkan.
+				// Untuk saat ini, kita asumsikan jika pathTree nil, kita lanjutkan (meskipun ini jarang terjadi jika meeting node valid)
 			}
 
 			for _, recipe := range curr_f_instance.combinations {
@@ -116,11 +125,11 @@ func bidirectionalSearchTree(tree *Treebidir, recipesForItem map[string][][]stri
 						q_f.PushBack(child_instance)
 						visited_f[child_instance] = curr_f_instance
 						forwardDepth[child_instance] = forwardDepth[curr_f_instance] + 1
+						// Check if met by backward search after adding child
 						if _, b_found := backwardDepth[child_instance]; b_found {
 							pathTree := constructShortestPathTree(child_instance, visited_f, visited_b, recipesForItem)
 							if pathTree != nil {
-								return pathTree
-							} else {
+								return pathTree, exploredNodeCount
 							}
 						}
 					}
@@ -128,20 +137,22 @@ func bidirectionalSearchTree(tree *Treebidir, recipesForItem map[string][][]stri
 			}
 		}
 
+		// Backward search step
 		if q_b.Len() > 0 {
 			frontElement_b := q_b.Front()
 			curr_b_instance := frontElement_b.Value.(*Nodebidir)
 			q_b.Remove(frontElement_b)
+			exploredNodeCount++ // Hitung node yang dieksplorasi dari antrian mundur
 
 			if curr_b_instance.isCycleNode {
 				continue
 			}
 
+			// Check if met by forward search
 			if _, found := forwardDepth[curr_b_instance]; found {
 				pathTree := constructShortestPathTree(curr_b_instance, visited_f, visited_b, recipesForItem)
 				if pathTree != nil {
-					return pathTree
-				} else {
+					return pathTree, exploredNodeCount
 				}
 			}
 
@@ -152,21 +163,22 @@ func bidirectionalSearchTree(tree *Treebidir, recipesForItem map[string][][]stri
 			if _, v_found := visited_b[parent_instance]; !v_found {
 				q_b.PushBack(parent_instance)
 				visited_b[parent_instance] = curr_b_instance
-				currentBaseLeaf := baseLeafSource[curr_b_instance] 
-				baseLeafSource[parent_instance] = currentBaseLeaf 
+				// Propagate the baseLeafSource
+				if sourceLeaf, ok := baseLeafSource[curr_b_instance]; ok {
+					baseLeafSource[parent_instance] = sourceLeaf
+				}
 				backwardDepth[parent_instance] = backwardDepth[curr_b_instance] + 1
-
+				// Check if met by forward search after adding parent
 				if _, f_found := forwardDepth[parent_instance]; f_found {
 					pathTree := constructShortestPathTree(parent_instance, visited_f, visited_b, recipesForItem)
 					if pathTree != nil {
-						return pathTree
-					} else {
+						return pathTree, exploredNodeCount
 					}
 				}
 			}
 		}
 	}
-	return nil 
+	return nil, exploredNodeCount // Tidak ada jalur ditemukan
 }
 
 func constructShortestPathTree(meetingNode *Nodebidir, visited_f, visited_b map[*Nodebidir]*Nodebidir, recipeData map[string][][]string) *Nodebidir {
@@ -267,7 +279,7 @@ func expandNodeRecipes(path []*Nodebidir, nodeMap map[*Nodebidir]*Nodebidir, rec
 				expandIngredientRecursively(ingredient2Cloned, nodeMap, clonedNode, recipeData)
 			}
 
-		} else if origNode != path[len(path)-1] { 
+		} else if origNode != path[len(path)-1] {
 			recipes, exists := recipeData[origNode.element]
 			if exists && len(recipes) > 0 {
 				bestRecipeStrings := findBestRecipeFromData(origNode.element, recipes, path)
@@ -530,16 +542,14 @@ func printShortestPathTree(node *Nodebidir, prefix string, isLast bool) {
 		return
 	}
 
-
 	fmt.Print(prefix)
 	if isLast {
 		fmt.Print("└── ")
-		prefix += "    " 
+		prefix += "    "
 	} else {
 		fmt.Print("├── ")
-		prefix += "│   " 
+		prefix += "│   "
 	}
-
 
 	fmt.Println(node.element)
 	if isBase(node.element) {
@@ -554,10 +564,10 @@ func printShortestPathTree(node *Nodebidir, prefix string, isLast bool) {
 		fmt.Print(prefix)
 
 		if isLastCombination {
-			fmt.Print("└── ")                       
+			fmt.Print("└── ")
 			combinationChildPrefix = prefix + "    "
 		} else {
-			fmt.Print("├── ")                       
+			fmt.Print("├── ")
 			combinationChildPrefix = prefix + "│   "
 		}
 
@@ -573,15 +583,14 @@ func printShortestPathTree(node *Nodebidir, prefix string, isLast bool) {
 	}
 }
 
-func searchBidirectOne(target string) *Nodebidir {
-
+func searchBidirectOne(target string) (*Nodebidir, int) {
 	recipesForTargetItem := recipeData.Recipes[target]
 	fullTree := buildTreeBFS(target, recipesForTargetItem)
-	pathTree := bidirectionalSearchTree(fullTree, recipesForTargetItem)
+	pathTree, numPaths := bidirectionalSearchTree(fullTree, recipesForTargetItem)
 
 	if pathTree != nil {
 		printShortestPathTree(pathTree, "", true)
 	}
 
-	return pathTree
+	return pathTree, numPaths
 }
