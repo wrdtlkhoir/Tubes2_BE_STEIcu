@@ -49,15 +49,14 @@ func findBaseLeaves(node *Nodebidir, baseLeaves []*Nodebidir) []*Nodebidir {
 	return baseLeaves
 }
 
+// VERSI DENGAN PEMROSESAN LEVEL LEBIH KETAT SEBELUM BREAK
 func bidirectionalSearchTree(tree *Treebidir, recipesForItem map[string][][]string) (*Nodebidir, int) {
-	exploredNodeCount := 0 // Inisialisasi penghitung node yang dieksplorasi
+	exploredNodeCount := 0
 
 	if tree == nil || tree.root == nil {
-		fmt.Println("Tree is empty")
 		return nil, exploredNodeCount
 	}
 	if tree.root.isCycleNode {
-		fmt.Println("Root is a cycle node")
 		return nil, exploredNodeCount
 	}
 
@@ -66,70 +65,104 @@ func bidirectionalSearchTree(tree *Treebidir, recipesForItem map[string][][]stri
 	root_f := tree.root
 	q_f.PushBack(root_f)
 	visited_f[root_f] = nil
-	// Node pertama (root) akan dihitung saat di-pop dari q_f
 
-	baseLeaves := findBaseLeaves(tree.root, []*Nodebidir{})
+	baseLeavesInitial := findBaseLeaves(tree.root, []*Nodebidir{})
+	uniqueBaseLeavesMap := make(map[*Nodebidir]struct{})
+	var baseLeaves []*Nodebidir
+	for _, leaf := range baseLeavesInitial {
+		if _, exists := uniqueBaseLeavesMap[leaf]; !exists {
+			uniqueBaseLeavesMap[leaf] = struct{}{}
+			baseLeaves = append(baseLeaves, leaf)
+		}
+	}
+
 	q_b := list.New()
 	visited_b := make(map[*Nodebidir]*Nodebidir)
 
 	if len(baseLeaves) == 0 {
-		fmt.Println("No base leaves found, cannot perform backward search.")
-		return nil, exploredNodeCount
+		if q_f.Len() == 1 && q_f.Front().Value.(*Nodebidir) == root_f {
+			isRootBase := isBase(root_f.element)
+			q_f.Remove(q_f.Front())
+			exploredNodeCount = 1
+			if isRootBase { // Jika root adalah base, itu adalah jalurnya
+				return constructShortestPathTree(root_f, visited_f, visited_b, recipesForItem), exploredNodeCount
+			}
+		}
+		return nil, exploredNodeCount // Tidak ada backward search atau hanya root non-base dieksplor
 	}
+
 	for _, baseLeaf := range baseLeaves {
+		if baseLeaf == root_f {
+			if q_f.Len() > 0 && q_f.Front().Value.(*Nodebidir) == root_f {
+				q_f.Remove(q_f.Front())
+				exploredNodeCount = 1
+			} else if q_f.Len() == 0 { // Seharusnya tidak terjadi jika root_f ada
+				exploredNodeCount = 0
+			}
+			return constructShortestPathTree(root_f, visited_f, visited_b, recipesForItem), exploredNodeCount
+		}
 		q_b.PushBack(baseLeaf)
 		visited_b[baseLeaf] = nil
-		// Node baseLeaf akan dihitung saat di-pop dari q_b
+	}
+
+	if q_b.Len() == 0 { // Tidak ada base leaves yang valid untuk memulai pencarian mundur setelah filter
+		for q_f.Len() > 0 {
+			q_f.Remove(q_f.Front())
+			exploredNodeCount++
+		}
+		return nil, exploredNodeCount
 	}
 
 	forwardDepth := make(map[*Nodebidir]int)
 	backwardDepth := make(map[*Nodebidir]int)
-	baseLeafSource := make(map[*Nodebidir]*Nodebidir) // Untuk melacak asal baseLeaf dari node di pencarian mundur
-
 	forwardDepth[root_f] = 0
 	for _, leaf := range baseLeaves {
 		backwardDepth[leaf] = 0
-		baseLeafSource[leaf] = leaf
 	}
 
+	type MeetingPointInfo struct {
+		node          *Nodebidir
+		forwardDepth  int
+		backwardDepth int
+	}
+	var meetingPointsFound []MeetingPointInfo
+
+	foundMeetingInThisPass := false
+
 	for q_f.Len() > 0 && q_b.Len() > 0 {
-		// Forward search step
-		if q_f.Len() > 0 {
+		// Langkah Maju
+		currentLevelSizeF := q_f.Len()
+		for i := 0; i < currentLevelSizeF; i++ {
 			frontElement_f := q_f.Front()
 			curr_f_instance := frontElement_f.Value.(*Nodebidir)
 			q_f.Remove(frontElement_f)
-			exploredNodeCount++ // Hitung node yang dieksplorasi dari antrian maju
+			exploredNodeCount++
 
 			if curr_f_instance.isCycleNode {
 				continue
 			}
 
-			// Check if met by backward search
-			if _, found := backwardDepth[curr_f_instance]; found {
-				pathTree := constructShortestPathTree(curr_f_instance, visited_f, visited_b, recipesForItem)
-				if pathTree != nil {
-					return pathTree, exploredNodeCount
-				}
-				// Jika constructShortestPathTree mengembalikan nil, mungkin ada masalah atau jalur tidak valid,
-				// pencarian bisa dilanjutkan atau dihentikan tergantung logika yang diinginkan.
-				// Untuk saat ini, kita asumsikan jika pathTree nil, kita lanjutkan (meskipun ini jarang terjadi jika meeting node valid)
+			if bDepth, found := backwardDepth[curr_f_instance]; found {
+				meetingPointsFound = append(meetingPointsFound, MeetingPointInfo{
+					curr_f_instance, forwardDepth[curr_f_instance], bDepth,
+				})
+				foundMeetingInThisPass = true // Tandai pertemuan
 			}
 
 			for _, recipe := range curr_f_instance.combinations {
 				children := []*Nodebidir{recipe.ingredient1, recipe.ingredient2}
 				for _, child_instance := range children {
-					if child_instance == nil || child_instance.isCycleNode {
-						continue
-					}
-					if _, v_found := visited_f[child_instance]; !v_found {
-						q_f.PushBack(child_instance)
-						visited_f[child_instance] = curr_f_instance
-						forwardDepth[child_instance] = forwardDepth[curr_f_instance] + 1
-						// Check if met by backward search after adding child
-						if _, b_found := backwardDepth[child_instance]; b_found {
-							pathTree := constructShortestPathTree(child_instance, visited_f, visited_b, recipesForItem)
-							if pathTree != nil {
-								return pathTree, exploredNodeCount
+					if child_instance != nil && !child_instance.isCycleNode {
+						if _, visited := visited_f[child_instance]; !visited {
+							q_f.PushBack(child_instance)
+							visited_f[child_instance] = curr_f_instance
+							newFwdDepth := forwardDepth[curr_f_instance] + 1
+							forwardDepth[child_instance] = newFwdDepth
+							if bDepthChild, found := backwardDepth[child_instance]; found {
+								meetingPointsFound = append(meetingPointsFound, MeetingPointInfo{
+									child_instance, newFwdDepth, bDepthChild,
+								})
+								foundMeetingInThisPass = true // Tandai pertemuan
 							}
 						}
 					}
@@ -137,48 +170,81 @@ func bidirectionalSearchTree(tree *Treebidir, recipesForItem map[string][][]stri
 			}
 		}
 
-		// Backward search step
-		if q_b.Len() > 0 {
+		if foundMeetingInThisPass {
+			break
+		}
+
+		currentLevelSizeB := q_b.Len()
+		for i := 0; i < currentLevelSizeB; i++ {
 			frontElement_b := q_b.Front()
 			curr_b_instance := frontElement_b.Value.(*Nodebidir)
 			q_b.Remove(frontElement_b)
-			exploredNodeCount++ // Hitung node yang dieksplorasi dari antrian mundur
+			exploredNodeCount++
 
 			if curr_b_instance.isCycleNode {
 				continue
 			}
 
-			// Check if met by forward search
-			if _, found := forwardDepth[curr_b_instance]; found {
-				pathTree := constructShortestPathTree(curr_b_instance, visited_f, visited_b, recipesForItem)
-				if pathTree != nil {
-					return pathTree, exploredNodeCount
-				}
+			if fDepth, found := forwardDepth[curr_b_instance]; found {
+				meetingPointsFound = append(meetingPointsFound, MeetingPointInfo{
+					curr_b_instance, fDepth, backwardDepth[curr_b_instance],
+				})
+				foundMeetingInThisPass = true // Tandai pertemuan
 			}
 
 			parent_instance := curr_b_instance.parent
-			if parent_instance == nil || parent_instance.isCycleNode {
-				continue
-			}
-			if _, v_found := visited_b[parent_instance]; !v_found {
-				q_b.PushBack(parent_instance)
-				visited_b[parent_instance] = curr_b_instance
-				// Propagate the baseLeafSource
-				if sourceLeaf, ok := baseLeafSource[curr_b_instance]; ok {
-					baseLeafSource[parent_instance] = sourceLeaf
-				}
-				backwardDepth[parent_instance] = backwardDepth[curr_b_instance] + 1
-				// Check if met by forward search after adding parent
-				if _, f_found := forwardDepth[parent_instance]; f_found {
-					pathTree := constructShortestPathTree(parent_instance, visited_f, visited_b, recipesForItem)
-					if pathTree != nil {
-						return pathTree, exploredNodeCount
+			if parent_instance != nil && !parent_instance.isCycleNode {
+				if _, visited := visited_b[parent_instance]; !visited {
+					q_b.PushBack(parent_instance)
+					visited_b[parent_instance] = curr_b_instance
+					newBwdDepth := backwardDepth[curr_b_instance] + 1
+					backwardDepth[parent_instance] = newBwdDepth
+					if fDepthParent, found := forwardDepth[parent_instance]; found {
+						meetingPointsFound = append(meetingPointsFound, MeetingPointInfo{
+							parent_instance, fDepthParent, newBwdDepth,
+						})
+						foundMeetingInThisPass = true // Tandai pertemuan
 					}
 				}
 			}
 		}
+
+		if foundMeetingInThisPass {
+			break
+		}
 	}
-	return nil, exploredNodeCount // Tidak ada jalur ditemukan
+
+	if len(meetingPointsFound) == 0 {
+		for q_f.Len() > 0 {
+			q_f.Remove(q_f.Front())
+			exploredNodeCount++
+		}
+		for q_b.Len() > 0 {
+			q_b.Remove(q_b.Front())
+			exploredNodeCount++
+		}
+		return nil, exploredNodeCount
+	}
+
+	var bestMeetingNode *Nodebidir
+	minDepthSum := -1
+	for _, mp := range meetingPointsFound {
+		currentDepthSum := mp.forwardDepth + mp.backwardDepth
+		if bestMeetingNode == nil || currentDepthSum < minDepthSum {
+			minDepthSum = currentDepthSum
+			bestMeetingNode = mp.node
+		} else if currentDepthSum == minDepthSum {
+			if mp.forwardDepth < forwardDepth[bestMeetingNode] {
+				bestMeetingNode = mp.node
+			}
+		}
+	}
+
+	if bestMeetingNode != nil {
+		pathTree := constructShortestPathTree(bestMeetingNode, visited_f, visited_b, recipesForItem)
+		return pathTree, exploredNodeCount
+	}
+	return nil, exploredNodeCount
 }
 
 func constructShortestPathTree(meetingNode *Nodebidir, visited_f, visited_b map[*Nodebidir]*Nodebidir, recipeData map[string][][]string) *Nodebidir {

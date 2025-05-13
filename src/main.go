@@ -216,7 +216,6 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 					treeNode := convertToTreeNode(tree.root)
 					treeNodes = append(treeNodes, treeNode)
 				}
-
 				executionTime := time.Since(startTime).Milliseconds()
 				resp = MultipleSearchResponse{
 					Trees:         treeNodes,
