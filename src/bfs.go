@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"context"
+	"time"
 )
 
 /*** SINGLE RECIPE BFS ***/
@@ -27,46 +28,51 @@ func searchBFSOne(target string) (*Tree, int) {
 func bfsOne(element string) (*Node, int) {
 	cntNode := 0
 
-	pendingNodes := make(map[string][]string)
+	pendingNodes := make(map[string][][]string)
 	nodeMap := make(map[string]*Node)
 
 	queue := []string{element}
 	visitedBFS[element] = true
 
 	for len(queue) > 0 {
-		element := queue[0]
+		current := queue[0]
 		queue = queue[1:]
 
-		if _, exists := nodeMap[element]; !exists {
-			nodeMap[element] = &Node{element: element}
+		if _, exists := nodeMap[current]; !exists {
+			nodeMap[current] = &Node{element: current}
 		}
 
-		if isBase(element) {
+		if isBase(current) {
 			continue
 		}
 
-		if ingredients, hasRecipe := mainDataBFS[element]; hasRecipe && len(ingredients) > 0 {
-			pair := ingredients[0]
-			pendingNodes[element] = pair
+		if recipes, hasRecipe := mainDataBFS[current]; hasRecipe && len(recipes) > 0 {
+			for _, pair := range recipes {
+				if len(pair) != 2 {
+					continue
+				}
+				pendingNodes[current] = append(pendingNodes[current], pair)
 
-			for _, ingredient := range pair {
-				cntNode++
-				if !visitedBFS[ingredient] {
-					visitedBFS[ingredient] = true
-					queue = append(queue, ingredient)
+				for _, ingredient := range pair {
+					cntNode++
+					if !visitedBFS[ingredient] {
+						visitedBFS[ingredient] = true
+						queue = append(queue, ingredient)
+					}
 				}
 			}
 		}
 	}
 
-	for el, ingredients := range pendingNodes {
-		left := nodeMap[ingredients[0]]
-		right := nodeMap[ingredients[1]]
+	for el, allPairs := range pendingNodes {
+		firstPair := allPairs[0]
+		ing1 := nodeMap[firstPair[0]]
+		ing2 := nodeMap[firstPair[1]]
 
 		nodeMap[el].combinations = []Recipe{
 			{
-				ingredient1: left,
-				ingredient2: right,
+				ingredient1: ing1,
+				ingredient2: ing2,
 			},
 		}
 
@@ -75,6 +81,7 @@ func bfsOne(element string) (*Node, int) {
 
 	return nodeMap[element], cntNode
 }
+
 
 /*** MULTIPLE RECIPE BFS ***/
 var allFinalTargetTrees []*Node
@@ -93,6 +100,198 @@ func searchBFSMultiple(target string, maxPathsToReturn int) ([]*Tree, []int) {
 		pathElementCounts = append(pathElementCounts, getPathElementCount(rootNode))
 	}
 	return trees, pathElementCounts
+}
+
+
+func bfsAll(targetElement string, maxPathsToReturn int, currentRecipeMap map[string][][]string) []*Node {
+	var collectedTrees []*Node
+	var mu sync.Mutex 
+
+	targetTopLevelCombs, exists := currentRecipeMap[targetElement]
+	if !exists || len(targetTopLevelCombs) == 0 {
+		return []*Node{{element: targetElement}}
+	}
+
+	concurrencyLimit := 8 
+	sem := make(chan struct{}, concurrencyLimit)
+	resultChanBufferSize := 100
+	if maxPathsToReturn > 0 && maxPathsToReturn < resultChanBufferSize {
+		resultChanBufferSize = maxPathsToReturn
+	}
+	resultChan := make(chan *Node, resultChanBufferSize)
+	
+	var wg sync.WaitGroup
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pathsFound := 0
+
+	for _, topRecipePair := range targetTopLevelCombs {
+		if len(topRecipePair) != 2 {
+			continue
+		}
+
+		sem <- struct{}{} 
+		wg.Add(1)
+		go func(recipe []string, currentContext context.Context) {
+			defer func() {
+				<-sem 
+				wg.Done()
+			}()
+
+			// goroutineMemo := make(map[string][]*Node)
+			pathVisited := make(map[string]bool)
+			pathVisited[targetElement] = true
+
+			ing1Name := recipe[0]
+			ing2Name := recipe[1]
+
+			expandedIng1Nodes := expandElementParallel(ing1Name, currentRecipeMap)
+			expandedIng2Nodes := expandElementParallel(ing2Name, currentRecipeMap)
+			
+			delete(pathVisited, targetElement)
+
+			if len(expandedIng1Nodes) == 0 { expandedIng1Nodes = []*Node{{element: ing1Name}} }
+			if len(expandedIng2Nodes) == 0 { expandedIng2Nodes = []*Node{{element: ing2Name}} }
+
+			for _, nodeIng1 := range expandedIng1Nodes {
+				for _, nodeIng2 := range expandedIng2Nodes {
+					select {
+					case <-currentContext.Done():
+						return
+					default:
+						// continue
+					}
+
+					rootNode := &Node{
+						element: targetElement,
+						combinations: []Recipe{{
+							ingredient1: nodeIng1,
+							ingredient2: nodeIng2,
+						}},
+					}
+
+					select {
+					case resultChan <- rootNode:
+					case <-currentContext.Done():
+						return
+					}
+				}
+			}
+		}(topRecipePair, ctx)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	for tree := range resultChan {
+		mu.Lock()
+		if maxPathsToReturn <= 0 || pathsFound < maxPathsToReturn {
+			collectedTrees = append(collectedTrees, tree)
+			pathsFound++
+			if maxPathsToReturn > 0 && pathsFound >= maxPathsToReturn {
+				cancel() 
+			}
+		}
+		mu.Unlock()
+	}
+	
+	return collectedTrees
+}
+
+func expandElementParallel(
+	elementName string,
+	currentRecipeMap map[string][][]string,
+) []*Node {
+	var memo sync.Map
+	var wg sync.WaitGroup
+	jobChan := make(chan string, 100)
+
+	worker := func() {
+		for elem := range jobChan {
+			// fmt.Println(elem)
+			if _, exists := memo.Load(elem); exists {
+				wg.Done()
+				continue
+			}
+
+			recipes, ok := currentRecipeMap[elem]
+			if !ok || len(recipes) == 0 {
+				memo.Store(elem, []*Node{{element: elem}})
+				wg.Done()
+				continue
+			}
+
+			var nodes []*Node
+			for _, recipe := range recipes {
+				// fmt.Println("here")
+				if len(recipe) != 2 {
+					continue
+				}
+				ing1 := recipe[0]
+				ing2 := recipe[1]
+
+				// Add dependencies
+				if _, ok := memo.Load(ing1); !ok {
+					wg.Add(1)
+					jobChan <- ing1
+				}
+				if _, ok := memo.Load(ing2); !ok {
+					wg.Add(1)
+					jobChan <- ing2
+				}
+
+				var ing1Nodes, ing2Nodes []*Node
+				for {
+					if val, ok := memo.Load(ing1); ok {
+						ing1Nodes = val.([]*Node)
+						break
+					}
+					time.Sleep(time.Millisecond)
+				}
+				for {
+					if val, ok := memo.Load(ing2); ok {
+						ing2Nodes = val.([]*Node)
+						break
+					}
+					time.Sleep(time.Millisecond)
+				}
+
+				for _, n1 := range ing1Nodes {
+					for _, n2 := range ing2Nodes {
+						nodes = append(nodes, &Node{
+							element: elem,
+							combinations: []Recipe{{
+								ingredient1: n1,
+								ingredient2: n2,
+							}},
+						})
+					}
+				}
+			}
+			memo.Store(elem, nodes)
+			wg.Done()
+		}
+	}
+
+	// start workers
+	for i := 0; i < 8; i++ {
+		go worker()
+	}
+
+	wg.Add(1)
+	jobChan <- elementName
+
+	wg.Wait()
+	close(jobChan)
+
+	if val, ok := memo.Load(elementName); ok {
+		return val.([]*Node)
+	}
+	return []*Node{}
 }
 
 func expandElement(
@@ -155,107 +354,9 @@ func expandElement(
 	return allPossibleNodesForThisElement
 }
 
-func bfsAll(targetElement string, maxPathsToReturn int, currentRecipeMap map[string][][]string) []*Node {
-	var collectedTrees []*Node
-	var mu sync.Mutex 
 
-	targetTopLevelCombs, exists := currentRecipeMap[targetElement]
-	if !exists || len(targetTopLevelCombs) == 0 {
-		return []*Node{{element: targetElement}}
-	}
 
-	concurrencyLimit := 8 
-	sem := make(chan struct{}, concurrencyLimit)
-	resultChanBufferSize := 100
-	if maxPathsToReturn > 0 && maxPathsToReturn < resultChanBufferSize {
-		resultChanBufferSize = maxPathsToReturn
-	}
-	resultChan := make(chan *Node, resultChanBufferSize)
-	
-	var wg sync.WaitGroup
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	pathsFound := 0
-
-	for _, topRecipePair := range targetTopLevelCombs {
-		if len(topRecipePair) != 2 {
-			continue
-		}
-
-		sem <- struct{}{} 
-		wg.Add(1)
-		go func(recipe []string, currentContext context.Context) {
-			defer func() {
-				<-sem 
-				wg.Done()
-			}()
-
-			goroutineMemo := make(map[string][]*Node)
-			pathVisited := make(map[string]bool)
-			pathVisited[targetElement] = true
-
-			ing1Name := recipe[0]
-			ing2Name := recipe[1]
-
-			expandedIng1Nodes := expandElement(ing1Name, currentRecipeMap, pathVisited, goroutineMemo)
-			expandedIng2Nodes := expandElement(ing2Name, currentRecipeMap, pathVisited, goroutineMemo)
-			
-			delete(pathVisited, targetElement)
-
-			if len(expandedIng1Nodes) == 0 { expandedIng1Nodes = []*Node{{element: ing1Name}} }
-			if len(expandedIng2Nodes) == 0 { expandedIng2Nodes = []*Node{{element: ing2Name}} }
-
-			for _, nodeIng1 := range expandedIng1Nodes {
-				for _, nodeIng2 := range expandedIng2Nodes {
-					select {
-					case <-currentContext.Done():
-						return
-					default:
-						// continue
-					}
-
-					rootNode := &Node{
-						element: targetElement,
-						combinations: []Recipe{{
-							ingredient1: nodeIng1,
-							ingredient2: nodeIng2,
-						}},
-					}
-
-					select {
-					case resultChan <- rootNode:
-					case <-currentContext.Done():
-						return // Context cancelled
-					}
-				}
-			}
-		}(topRecipePair, ctx)
-	}
-
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
-
-	for tree := range resultChan {
-		mu.Lock()
-		// Check if we still need to collect paths
-		if maxPathsToReturn <= 0 || pathsFound < maxPathsToReturn {
-			collectedTrees = append(collectedTrees, tree)
-			pathsFound++
-			// If maxPathsToReturn is positive and we've reached it, cancel other goroutines.
-			if maxPathsToReturn > 0 && pathsFound >= maxPathsToReturn {
-				cancel() 
-			}
-		}
-		mu.Unlock()
-	}
-	
-	return collectedTrees
-}
-
+/*** FOR BIDIRECTIONAL ***/
 func multipleBfsForBidir(tree *Treebidir, numPaths int) []*Nodebidir {
 	fmt.Println("start multiple bfs")
 
@@ -427,22 +528,22 @@ func constructPathTree(targetNode *Nodebidir, visited map[*Nodebidir]*Nodebidir)
 // func main() {
 
 // 	loadRecipes("recipes.json")
-// 	target := "Darkness"
-// 	// numOfRecipe := 1
+// 	target := "Rain"
+// 	numOfRecipe := 2
 
 // 	// ini buat debug result aja
 // 	// tree := InitTree(target, recipeData.Recipes[target])
 // 	// printTree(tree)
 
 // 	// Try Single Recipe
-// 	result, nodes := searchBFSOne(target)
-// 	printTree(result)
-// 	fmt.Printf("Number of visited nodes: %d\n", nodes)
+// 	// result, nodes := searchBFSOne(target)
+// 	// printTree(result)
+// 	// fmt.Printf("Number of visited nodes: %d\n", nodes)
 
 // 	// Try multiple Recipe
-// 	// result2, nodes2 := searchBFSMultiple(target, numOfRecipe)
-// 	// for _, recipe := range result2 {
-// 	// 	printTree(recipe)
-// 	// }
-// 	// fmt.Printf("Number of visited nodes: %d\n", nodes2)
+// 	result2, nodes2 := searchBFSMultiple(target, numOfRecipe)
+// 	for _, recipe := range result2 {
+// 		printTree(recipe)
+// 	}
+// 	fmt.Printf("Number of visited nodes: %d\n", nodes2)
 // }
