@@ -73,6 +73,9 @@ In the project directory, you can run:
 ```
 This runs the app in the development mode.
 
+## How to use the program
+After running the back-end server and front-end, users can choose searching algorithm, method, and number of nodes (for multiple recipe) then click "Search" button. The solution tree(s) later be displayed on the box next to the input buttons including number of visited nodes, searching duration, and number of recipes found.
+
 ## Notes
 This project uses the Go standard library packages:
 - ```encoding/json``` for JSON encoding/decoding.
